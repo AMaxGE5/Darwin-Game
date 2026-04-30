@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Darwin Islands — Survival of the Fittest</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0c1a22;
+    --panel:rgba(10,22,30,.78);
+    --panel-border:rgba(212,184,120,.35);
+    --accent:#d4b878;
+    --accent-soft:#f3e3b8;
+    --good:#7ee08a;
+    --bad:#ff6b6b;
+    --ink:#f5ecd2;
+    --ink-dim:#bfb398;
+    --water:#1f4d63;
+    --sand:#d8c48a;
+    --grass:#3e7a3e;
+    --rock:#7d7466;
+    --lava:#ff5a1f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;background:#000;color:var(--ink);font-family:Georgia,'Times New Roman',serif;}
+  #game{position:fixed;inset:0;display:block;background:#0a1418;cursor:crosshair;}
+  .ui{position:fixed;pointer-events:none;font-family:Georgia,serif;text-shadow:0 1px 2px rgba(0,0,0,.85);}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:6px;
+    padding:10px 14px;
+    backdrop-filter: blur(6px);
+    pointer-events:auto;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+  }
+  /* Top bar */
+  #topbar{top:12px;left:50%;transform:translateX(-50%);display:flex;gap:24px;align-items:center;}
+  #topbar .stat{font-size:18px;color:var(--ink-dim);}
+  #topbar .stat b{color:var(--accent-soft);font-weight:normal;letter-spacing:.5px;}
+  /* Mission tracker */
+  #missions{top:12px;left:12px;width:340px;}
+  #missions h3{font-size:16px;letter-spacing:2px;color:var(--accent);margin-bottom:10px;font-weight:normal;text-transform:uppercase;}
+  #missions ul{list-style:none;}
+  #missions li{font-size:16px;color:var(--ink);margin:7px 0;padding-left:28px;position:relative;line-height:1.4;}
+  #missions li:before{content:"☐";position:absolute;left:0;color:var(--ink-dim);}
+  #missions li.done{color:var(--ink-dim);text-decoration:line-through;}
+  #missions li.done:before{content:"☑";color:var(--good);}
+  #hint{margin-top:12px;font-size:14px;color:var(--accent-soft);font-style:italic;border-top:1px solid var(--panel-border);padding-top:10px;}
+  /* Stats bars */
+  #stats{bottom:12px;left:12px;width:280px;}
+  .bar{height:10px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:5px 0 10px;}
+  .bar > div{height:100%;transition:width .25s;}
+  .bar.health > div{background:linear-gradient(90deg,#ff8a8a,#ff5252);}
+  .bar.hunger > div{background:linear-gradient(90deg,#f3c97a,#d49a3b);}
+  .bar.thirst > div{background:linear-gradient(90deg,#7adff3,#3ba8d4);}
+  .bar.energy > div{background:linear-gradient(90deg,#c6f37a,#7ed44e);}
+  .bar.evo > div{background:linear-gradient(90deg,#d4b878,#7ee08a);}
+  #stats .label{font-size:14px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:1.5px;display:flex;justify-content:space-between;}
+  /* Inventory */
+  #inv{bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+  .slot{
+    width:70px;height:70px;background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:14px;color:var(--ink-dim);position:relative;pointer-events:auto;
+  }
+  .slot .icon{font-size:28px;line-height:1;color:var(--accent-soft);}
+  .slot .qty{position:absolute;bottom:2px;right:5px;font-size:14px;color:var(--accent);}
+  .slot .name{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--ink-dim);white-space:nowrap;}
+  /* Actions / craft button */
+  #actions{bottom:12px;right:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .btn{
+    background:var(--panel);border:1px solid var(--panel-border);color:var(--accent-soft);
+    padding:12px 20px;border-radius:4px;font-family:Georgia,serif;font-size:16px;
+    cursor:pointer;letter-spacing:1px;pointer-events:auto;
+  }
+  .btn:hover{background:rgba(212,184,120,.18);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  /* Modal */
+  .modal{
+    position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;
+    z-index:50;backdrop-filter:blur(4px);
+  }
+  .modal.show{display:flex;}
+  .modal .box{
+    width:min(640px,92vw);max-height:88vh;overflow:auto;
+    background:#1a1310;border:1px solid var(--panel-border);
+    border-radius:8px;padding:28px 32px;box-shadow:0 20px 60px rgba(0,0,0,.7);
+    color:var(--ink);
+  }
+  .modal h2{color:var(--accent);font-weight:normal;letter-spacing:3px;text-transform:uppercase;font-size:22px;margin-bottom:14px;border-bottom:1px solid var(--panel-border);padding-bottom:10px;}
+  .modal h3{color:var(--accent-soft);font-size:17px;letter-spacing:1.5px;text-transform:uppercase;margin:18px 0 8px;}
+  .modal p{font-size:16px;line-height:1.65;margin-bottom:10px;color:var(--ink);font-style:italic;}
+  .modal .recipe{
+    border:1px solid var(--panel-border);padding:12px 16px;border-radius:4px;margin:8px 0;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+  }
+  .modal .recipe .info{flex:1;}
+  .modal .recipe .name{color:var(--accent-soft);font-size:17px;}
+  .modal .recipe .cost{color:var(--ink-dim);font-size:14px;margin-top:4px;}
+  .modal .recipe button{background:var(--accent);color:#1a1310;border:none;padding:10px 20px;border-radius:3px;cursor:pointer;font-family:Georgia,serif;font-size:15px;}
+  .modal .recipe button:disabled{background:#555;color:#999;cursor:not-allowed;}
+  .modal .closebtn{
+    position:absolute;top:18px;right:24px;background:none;border:none;color:var(--ink-dim);
+    font-size:26px;cursor:pointer;
+  }
+  .modal .box{position:relative;}
+  /* Darwin journal */
+  #journalModal .box{background:#2b1f15;background-image:radial-gradient(rgba(0,0,0,.15) 1px, transparent 1px);background-size:8px 8px;}
+  #journalModal p{font-family:'Times New Roman',serif;color:#f1e2bd;}
+  /* Dialogue line */
+  #dialog{
+    position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
+    background:rgba(0,0,0,.78);border-left:3px solid var(--accent);
+    padding:14px 22px;color:var(--accent-soft);font-style:italic;font-size:18px;
+    max-width:620px;text-align:center;display:none;border-radius:2px;
+    pointer-events:none;
+  }
+  /* Toast */
+  #toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:var(--accent-soft);padding:10px 22px;border-radius:3px;font-size:16px;display:none;border:1px solid var(--panel-border);}
+  /* Day transition overlay */
+  #fader{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.5s;z-index:40;}
+  #fader.show{opacity:1;}
+  #fader .text{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--accent-soft);font-size:24px;letter-spacing:6px;text-transform:uppercase;text-align:center;font-family:Georgia,serif;}
+  #fader .sub{display:block;font-size:13px;letter-spacing:3px;color:var(--ink-dim);margin-top:8px;}
+  /* Title screen */
+  #title{position:fixed;inset:0;background:radial-gradient(ellipse at center,#1a3343 0%,#06121a 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:100;color:var(--ink);}
+  #title h1{font-size:54px;color:var(--accent-soft);letter-spacing:8px;margin-bottom:6px;font-weight:normal;text-shadow:0 2px 12px rgba(0,0,0,.7);}
+  #title h2{font-size:14px;color:var(--accent);letter-spacing:6px;margin-bottom:30px;font-weight:normal;font-style:italic;}
+  #title .desc{max-width:560px;text-align:center;color:var(--ink-dim);line-height:1.7;margin-bottom:30px;padding:0 20px;font-size:14px;}
+  #title .controls{font-size:12px;color:var(--ink-dim);margin-top:24px;text-align:center;line-height:1.8;}
+  #title .controls b{color:var(--accent);font-weight:normal;}
+  #title .startbtn{background:var(--accent);color:#1a1310;border:none;padding:14px 36px;font-size:16px;letter-spacing:4px;cursor:pointer;border-radius:3px;font-family:Georgia,serif;text-transform:uppercase;}
+  #title .startbtn:hover{background:var(--accent-soft);}
+  #title .loadbtn{background:transparent;color:var(--ink-dim);border:1px solid var(--panel-border);padding:10px 24px;font-size:13px;letter-spacing:3px;cursor:pointer;border-radius:3px;font-family:Georgia,serif;text-transform:uppercase;margin-left:12px;}
+  #title .loadbtn:hover{color:var(--accent-soft);}
+  /* Controls hint bottom-right strip */
+  #controlsHint{
+    position:fixed;bottom:90px;right:12px;font-size:13px;color:var(--ink-dim);
+    background:rgba(10,22,30,.55);padding:8px 14px;border-radius:3px;
+    border:1px solid rgba(212,184,120,.2);letter-spacing:.5px;
+    pointer-events:none;
+  }
+  #controlsHint b{color:var(--accent-soft);font-weight:normal;}
+  /* Victory stats grid */
+  .vstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+  .vstats > div{display:flex;justify-content:space-between;border-bottom:1px solid var(--panel-border);padding:6px 4px;font-size:13px;color:var(--ink-dim);}
+  .vstats b{color:var(--accent-soft);font-weight:normal;}
+  /* Hide UI initially */
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- Title screen -->
+<div id="title">
+  <h1>DARWIN ISLANDS</h1>
+  <h2>— SURVIVAL OF THE FITTEST —</h2>
+  <p class="desc">
+    Naufragas en un archipiélago volcánico. Sobrevive cinco días, observa cómo los pinzones
+    se adaptan a cada bioma, repara el bote y escapa antes de la erupción final.
+  </p>
+  <div>
+    <button class="startbtn" onclick="startGame(false)">Nueva partida</button>
+    <button class="loadbtn" id="loadBtn" onclick="startGame(true)">Cargar</button>
+  </div>
+  <div class="controls">
+    <b>WASD</b> mover · <b>Shift</b> correr · <b>ESPACIO</b> interactuar · <b>C</b> crafteo · <b>J</b> diario · <b>E</b> dormir<br>
+    <b>Q</b> comer · <b>R</b> beber · <b>1-6</b> seleccionar herramienta · <b>Click</b> usar herramienta
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="topbar" class="ui panel hidden">
+  <div class="stat">DÍA <b id="dayNum">1</b></div>
+  <div class="stat">HORA <b id="timeStr">06:00</b></div>
+  <div class="stat" id="phaseStr"><b>Amanecer</b></div>
+</div>
+
+<div id="missions" class="ui panel hidden">
+  <h3 id="missionTitle">Día 1 — Naufragio</h3>
+  <ul id="missionList"></ul>
+  <div id="hint">El amanecer en la playa. Recoge madera de los restos del barco.</div>
+</div>
+
+<div id="stats" class="ui panel hidden">
+  <div class="label"><span>Salud</span><span id="hpVal">100</span></div>
+  <div class="bar health"><div id="hpBar" style="width:100%"></div></div>
+  <div class="label"><span>Hambre</span><span id="hgVal">100</span></div>
+  <div class="bar hunger"><div id="hgBar" style="width:100%"></div></div>
+  <div class="label"><span>Sed</span><span id="thVal">100</span></div>
+  <div class="bar thirst"><div id="thBar" style="width:100%"></div></div>
+  <div class="label"><span>Energía</span><span id="enVal">100</span></div>
+  <div class="bar energy"><div id="enBar" style="width:100%"></div></div>
+  <div class="label"><span>Evolución del pinzón</span><span id="evVal">0</span></div>
+  <div class="bar evo"><div id="evBar" style="width:0%"></div></div>
+</div>
+
+<div id="inv" class="ui hidden"></div>
+
+<div id="actions" class="ui hidden">
+  <button class="btn" onclick="openCraft()">CRAFTEO (C)</button>
+  <button class="btn" onclick="openJournal()">DIARIO (J)</button>
+  <button class="btn" id="sleepBtn" onclick="trySleep()">DORMIR (E)</button>
+</div>
+
+<div id="dialog"></div>
+<div id="toast"></div>
+
+<!-- Crafting modal -->
+<div id="craftModal" class="modal">
+  <div class="box">
+    <button class="closebtn" onclick="closeModal('craftModal')">×</button>
+    <h2>Crafteo</h2>
+    <div id="craftList"></div>
+  </div>
+</div>
+
+<!-- Journal modal -->
+<div id="journalModal" class="modal">
+  <div class="box">
+    <button class="closebtn" onclick="closeModal('journalModal')">×</button>
+    <h2>Diario de Darwin</h2>
+    <div id="journalContent"></div>
+  </div>
+</div>
+
+<!-- Controls hint -->
+<div id="controlsHint" class="ui hidden">
+  <b>WASD</b> mover · <b>Shift</b> correr · <b>SPACE</b> interactuar · <b>C</b> crafteo · <b>J</b> diario · <b>E</b> dormir · <b>Q</b> comer · <b>R</b> beber · <b>F</b> dar comida al pinzón · <b>1-6</b> herramienta
+</div>
+
+<!-- Victory screen -->
+<div id="victory" class="modal">
+  <div class="box" style="max-width:680px;">
+    <h2>Has escapado del archipiélago</h2>
+    <p style="color:#f3e3b8;">El bote se mece sobre las olas. La columna de humo se reduce a una mancha gris en el horizonte. Sobre tu hombro, el pinzón evolucionado canta por primera vez una melodía nueva.</p>
+    <h3>Diario completo</h3>
+    <div id="vJournal"></div>
+    <h3>Resumen del viaje</h3>
+    <div id="vStats" class="vstats"></div>
+    <div style="text-align:center;margin-top:24px;">
+      <button class="btn" onclick="restartGame()" style="padding:12px 28px;">JUGAR DE NUEVO</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fader -->
+<div id="fader"><div class="text" id="faderText">Día 1<span class="sub">El naufragio</span></div></div>
+
+<script>
+/* =========================================================
+   DARWIN ISLANDS — single-file game
+   2D top-down survival inspired by Darwin's Galápagos voyage
+   ========================================================= */
+
+// ---------- Canvas setup ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+// ---------- Audio (WebAudio synth) ----------
+let actx;
+function audio(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+function blip(freq=440, dur=0.08, type='sine', vol=0.15){
+  try{
+    const a = audio(); const o = a.createOscillator(); const g = a.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol;
+    o.connect(g); g.connect(a.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+dur);
+    o.stop(a.currentTime+dur+0.02);
+  }catch(e){}
+}
+function chord(freqs, dur=0.3, type='sine', vol=0.1){ freqs.forEach(f=>blip(f,dur,type,vol)); }
+function sfxChop(){ blip(180,0.06,'square',0.12); }
+function sfxStone(){ blip(120,0.08,'sawtooth',0.12); }
+function sfxPickup(){ blip(660,0.06,'triangle',0.12); setTimeout(()=>blip(880,0.06,'triangle',0.1),60); }
+function sfxComplete(){ chord([523,659,784],0.25,'triangle',0.12); }
+function sfxCraft(){ chord([392,494,587],0.18,'square',0.1); }
+function sfxHurt(){ blip(120,0.2,'sawtooth',0.18); }
+function sfxThunder(){ blip(60,0.6,'sawtooth',0.25); setTimeout(()=>blip(40,0.4,'sawtooth',0.2),150); }
+
+// ---------- World data ----------
+// Three biomes / maps reachable across days
+const WORLD_W = 3200, WORLD_H = 2400;
+const VOLCANO_W = 2800, VOLCANO_H = 2000;
+const TILE = 40;
+
+// Map tile types: 0 sand, 1 grass, 2 rock, 3 water, 4 lava, 5 path
+const beachMap = generateMap(WORLD_W/TILE, WORLD_H/TILE, 'beach');
+const volcanoMap = generateMap(VOLCANO_W/TILE, VOLCANO_H/TILE, 'volcano');
+
+function generateMap(w,h,kind){
+  const m = []; for(let y=0;y<h;y++){ m[y]=[]; for(let x=0;x<w;x++) m[y][x]=0; }
+  if(kind==='beach'){
+    // outer water ring
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const dx = x - w/2, dy = y - h/2;
+      const r = Math.sqrt(dx*dx + dy*dy);
+      const noise = Math.sin(x*0.4)*1.5 + Math.cos(y*0.35)*1.5 + Math.sin((x+y)*0.2)*1.5;
+      const edge = Math.min(w,h)/2 - 6 + noise;
+      if(r > edge) m[y][x] = 3;
+      else if(r > edge - 4) m[y][x] = 0; // sand beach
+      else if(r > edge - 12) m[y][x] = 1; // grass interior
+      else m[y][x] = 1;
+    }
+    // Scatter rocks
+    for(let i=0;i<60;i++){
+      const x=Math.floor(Math.random()*w), y=Math.floor(Math.random()*h);
+      if(m[y]&&m[y][x]===1) m[y][x]=2;
+    }
+  } else { // volcano
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const dx = x - w/2, dy = y - h/2;
+      const r = Math.sqrt(dx*dx + dy*dy);
+      const noise = Math.sin(x*0.3)*2 + Math.cos(y*0.4)*2;
+      const edge = Math.min(w,h)/2 - 4 + noise;
+      if(r > edge) m[y][x] = 3;
+      else if(r > edge - 3) m[y][x] = 0;
+      else if(r < 8 + Math.sin(x*0.5)*2) m[y][x] = 4; // central lava
+      else if(r < 18) m[y][x] = 2; // rock plateau
+      else m[y][x] = 1;
+    }
+    // lava streams
+    for(let i=0;i<30;i++){
+      const cx = w/2, cy = h/2;
+      const ang = Math.random()*Math.PI*2;
+      for(let r=0;r<22;r++){
+        const x = Math.floor(cx + Math.cos(ang)*r);
+        const y = Math.floor(cy + Math.sin(ang)*r);
+        if(m[y]&&m[y][x]&&m[y][x]!==3 && Math.random()<0.5) m[y][x]=4;
+      }
+    }
+  }
+  return m;
+}
+
+// Decorative + interactive entities scattered in world
+function populate(map, w, h, kind){
+  const ents = [];
+  if(kind==='beach'){
+    // Driftwood near the beach edge
+    for(let i=0;i<40;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===0) ents.push({type:'driftwood',x,y,hp:2,res:'wood',amount:2});
+    }
+    // Trees in grass
+    for(let i=0;i<80;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===1) ents.push({type:'tree',x,y,hp:4,res:'wood',amount:3});
+    }
+    // Rocks
+    for(let i=0;i<60;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===2 || getTileAt(map,x,y)===1) ents.push({type:'rock',x,y,hp:3,res:'stone',amount:2});
+    }
+    // Berry bushes
+    for(let i=0;i<50;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===1) ents.push({type:'bush',x,y,hp:1,res:'berry',amount:2,respawn:0});
+    }
+    // Cactus (for fiber)
+    for(let i=0;i<25;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===0||getTileAt(map,x,y)===1) ents.push({type:'cactus',x,y,hp:2,res:'fiber',amount:2});
+    }
+    // Finches roaming
+    for(let i=0;i<8;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===1){
+        const sp = ['ground','tree','warbler','cactus'][i%4];
+        ents.push({type:'finch',x,y,vx:0,vy:0,species:sp,observed:false,timer:Math.random()*3});
+      }
+    }
+    // Injured finch (Day 1 mission) — center-ish
+    ents.push({type:'injuredFinch',x:w/2+80,y:h/2-20,fed:false,debrisCleared:false});
+    // Shipwreck pieces (Day 4-5)
+    for(let i=0;i<6;i++){
+      const ang = Math.random()*Math.PI*2; const r = Math.min(w,h)/2 - 60 - Math.random()*120;
+      ents.push({type:'wreck',x:w/2+Math.cos(ang)*r,y:h/2+Math.sin(ang)*r,res:'iron',amount:1,collected:false});
+    }
+    // Water sources — guaranteed 8 ponds on grass tiles
+    let pondCount = 0;
+    for(let attempts=0; attempts<400 && pondCount<8; attempts++){
+      const x = 200 + Math.random()*(w-400), y = 200 + Math.random()*(h-400);
+      if(getTileAt(map,x,y)===1){
+        ents.push({type:'pond',x,y});
+        pondCount++;
+      }
+    }
+    // Tortugas en la playa — guaranteed 5
+    let btCount=0;
+    for(let attempts=0;attempts<500&&btCount<5;attempts++){
+      const x=300+Math.random()*(w-600), y=300+Math.random()*(h-600);
+      if(getTileAt(map,x,y)===1){
+        ents.push({type:'tortoise',x,y,vx:0,vy:0,timer:Math.random()*3,observed:false,size:0.9+Math.random()*0.6});
+        btCount++;
+      }
+    }
+  } else { // volcano
+    // Volcanic rocks with crystals
+    for(let i=0;i<30;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      const t = getTileAt(map,x,y);
+      if(t===2||t===1) ents.push({type:'crystal',x,y,hp:5,res:'crystal',amount:1});
+    }
+    // Iron deposits — 20 guaranteed
+    let ironCount=0;
+    for(let attempts=0;attempts<600&&ironCount<20;attempts++){
+      const x=Math.random()*w, y=Math.random()*h;
+      const t=getTileAt(map,x,y);
+      if(t===2||t===1){ ents.push({type:'ironOre',x,y,hp:4,res:'iron',amount:1}); ironCount++; }
+    }
+    // Trees (sparse)
+    for(let i=0;i<25;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===1) ents.push({type:'tree',x,y,hp:4,res:'wood',amount:2});
+    }
+    // Tortoises — guaranteed 8 on volcano, retry until placed on grass
+    let tortCount=0;
+    for(let attempts=0;attempts<600&&tortCount<8;attempts++){
+      const x=200+Math.random()*(w-400), y=200+Math.random()*(h-400);
+      if(getTileAt(map,x,y)===1){
+        ents.push({type:'tortoise',x,y,vx:0,vy:0,timer:Math.random()*3,observed:false,size:0.8+Math.random()*0.5});
+        tortCount++;
+      }
+    }
+    // Volcano vents
+    for(let i=0;i<10;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      if(getTileAt(map,x,y)===2) ents.push({type:'vent',x,y,timer:Math.random()*2});
+    }
+  }
+  return ents;
+}
+
+function getTileAt(map,x,y){
+  const tx = Math.floor(x/TILE), ty = Math.floor(y/TILE);
+  if(!map[ty]||map[ty][tx]===undefined) return 3;
+  return map[ty][tx];
+}
+
+function isNearWater(map, x, y){
+  const offsets = [{dx:-TILE,dy:0},{dx:TILE,dy:0},{dx:0,dy:-TILE},{dx:0,dy:TILE}];
+  return offsets.some(o => getTileAt(map, x+o.dx, y+o.dy) === 3);
+}
+
+let beachEnts = populate(beachMap, WORLD_W, WORLD_H, 'beach');
+let volcanoEnts = populate(volcanoMap, VOLCANO_W, VOLCANO_H, 'volcano');
+
+// ---------- Game state ----------
+const game = {
+  started:false,
+  map:'beach', // 'beach' | 'volcano'
+  day:1,
+  time:6, // 0..24
+  phase:'morning',
+  player:{x:WORLD_W/2,y:WORLD_H/2,vx:0,vy:0,r:14,dir:0,facing:1,toolIdx:0},
+  hp:100, hg:100, th:100, en:100,
+  evo:0, // 0..100 finch evolution progress
+  inv:{wood:0,stone:0,fiber:0,berry:0,seed:0,crystal:0,iron:0,water:0,rope:0,torch:0,plank:0},
+  tools:{axe:false,pickaxe:false,spear:false,observer:true,raft:false,boat:false,axeTier:0,pickaxeTier:0,spearTier:0},
+  built:{campfire:null,table:null,wall:[],roof:null,torch:[],bed:null,raft:null,boatRepair:0},
+  storyFlags:{
+    introStorm:false,
+    finchRescued:false,
+    finchSeen:{},
+    seedsGathered:0,
+    tortoiseObserved:0,
+    crystalCollected:false,
+    boatRepaired:false,
+    crystalInstalled:false,
+    storm4Survived:false,
+    escaped:false,
+  },
+  missions:{},
+  journal:[],
+  weather:'clear', // clear | storm | volcanic
+  weatherTimer:0,
+  finchCompanion:{x:WORLD_W/2+30,y:WORLD_H/2,vx:0,vy:0,active:false,evoStage:0},
+  finchUpgrades:[], // unlocked perks from evo resets
+  evoResets:0,      // number of times evo has reset
+  dayStartSnapshot: null, // saved state at start of each day for death respawn
+  particles:[],
+  popups:[],
+  lastSaved:0,
+};
+
+// ---------- Mission definitions per day ----------
+const DAYS = {
+  1:{
+    title:"Día 1 — Naufragio",
+    hint:"Has despertado en la playa. Recoge madera de los restos del barco.",
+    objectives:[
+      {id:'wood', label:'Reúne 20 de madera', check:()=>game.inv.wood>=20},
+      {id:'stone', label:'Reúne 10 de piedra', check:()=>game.inv.stone>=10},
+      {id:'campfire', label:'Construye una hoguera', check:()=>!!game.built.campfire},
+      {id:'rescueFinch', label:'Rescata al pinzón herido', check:()=>game.storyFlags.finchRescued},
+      {id:'sleep', label:'Duerme junto a la hoguera', check:()=>false, manual:true},
+    ],
+    onComplete:()=>{
+      addJournal("Día 1 — He llegado a una orilla extraña. Las olas se llevaron al capitán y al resto. Solo el viento y los pájaros me responden. He encontrado un pinzón herido bajo los restos del barco, y al alimentarlo he sentido por primera vez que no estoy del todo solo.");
+      blip(440,0.3,'sine');
+    }
+  },
+  2:{
+    title:"Día 2 — Las diferencias",
+    hint:"Estudia los pinzones de la isla. Cada especie es distinta.",
+    objectives:[
+      {id:'observe', label:'Observa 1 pinzón', check:()=>Object.keys(game.storyFlags.finchSeen).length>=1},
+      {id:'seeds', label:'Recolecta 8 semillas', check:()=>game.storyFlags.seedsGathered>=8},
+      {id:'table', label:'Construye una mesa de crafteo', check:()=>!!game.built.table},
+      {id:'shelter', label:'Construye 4 paredes y un techo', check:()=>game.built.wall.length>=4 && !!game.built.roof},
+      {id:'sleep', label:'Duerme dentro del refugio', check:()=>false, manual:true},
+    ],
+    onComplete:()=>{
+      addJournal("Día 2 — Cada pinzón tiene un pico distinto. Los del suelo lo tienen grueso, para semillas. Los de los árboles, fino, para insectos. ¿Será posible que sean parientes, modificados por el lugar donde viven? La idea me persigue desde el atardecer.");
+    }
+  },
+  3:{
+    title:"Día 3 — La isla volcánica",
+    hint:"Construye una balsa y navega a la isla volcánica.",
+    objectives:[
+      {id:'rope', label:'Fabrica 4 cuerdas (fibra de cactus)', check:()=>game.inv.rope>=4},
+      {id:'raft', label:'Construye una balsa', check:()=>!!game.built.raft},
+      {id:'travel', label:'Viaja a la isla volcánica', check:()=>game.map==='volcano'},
+      {id:'tortoise', label:'Observa 3 tortugas gigantes', check:()=>game.storyFlags.tortoiseObserved>=3},
+      {id:'crystal', label:'Recolecta un cristal volcánico', check:()=>game.inv.crystal>=1},
+      {id:'sleep', label:'Regresa y duerme', check:()=>game.map==='beach', manual:false},
+    ],
+    onComplete:()=>{
+      addJournal("Día 3 — Las tortugas de esta isla son colosales, sus caparazones distintos a cualquier libro de zoología. El cristal volcánico arde aun lejos del fuego. La naturaleza ensaya formas que ningún hombre ha imaginado.");
+    }
+  },
+  4:{
+    title:"Día 4 — Selección natural",
+    hint:"Una tormenta gigante se aproxima. Refuerza el refugio.",
+    objectives:[
+      {id:'walls', label:'Refuerza con 6 paredes en total', check:()=>game.built.wall.length>=6},
+      {id:'torch', label:'Coloca 2 antorchas', check:()=>game.built.torch.length>=2},
+      {id:'iron', label:'Recolecta 3 piezas de hierro de los restos', check:()=>game.inv.iron>=3},
+      {id:'evo', label:'Evoluciona al pinzón al máximo', check:()=>game.storyFlags.evoMaxReached||game.evoResets>=1},
+      {id:'storm', label:'Sobrevive la tormenta', check:()=>game.storyFlags.storm4Survived},
+    ],
+    onComplete:()=>{
+      addJournal("Día 4 — La tormenta lo arrancó casi todo. Pero el pinzón ha sobrevivido y, asombrosamente, ha cambiado: su pico se ha endurecido, sus alas se han ensanchado. Los individuos que mejor se ajustan al medio son los que persisten. He aquí la mano invisible de la naturaleza.");
+    }
+  },
+  5:{
+    title:"Día 5 — Escape",
+    hint:"Repara el bote, instala el cristal volcánico y escapa antes de la erupción.",
+    objectives:[
+      {id:'planks', label:'Fabrica 6 tablones', check:()=>game.inv.plank>=6},
+      {id:'repair', label:'Repara el bote (5 partes)', check:()=>game.built.boatRepair>=5},
+      {id:'crystal', label:'Instala el cristal volcánico', check:()=>game.storyFlags.crystalInstalled},
+      {id:'escape', label:'Embarca y escapa', check:()=>game.storyFlags.escaped},
+    ],
+    onComplete:()=>{
+      addJournal("Día 5 — La isla arde a mis espaldas. El pinzón vuela en círculos sobre mi cabeza, guiándome por el último canal seguro. Llevo conmigo no solo las piezas de un naufragio, sino una idea: que la vida no es fija, sino una larga y silenciosa adaptación. Que descansen mis dudas: la naturaleza tiene sus propias leyes, y yo he tenido el privilegio de vislumbrarlas.");
+    }
+  }
+};
+
+// ---------- Crafting recipes ----------
+const RECIPES = [
+  // — HERRAMIENTAS DE MADERA —
+  {id:'axe_wood', name:'Hacha de madera', cost:{wood:5}, requires:[], 
+    canMake:()=> !game.tools.axe || game.tools.axeTier===0,
+    make:()=>{
+      game.tools.axe=true; game.tools.axeTier=1;
+      toast('Hacha de madera — tala árboles más rápido');
+    }
+  },
+  {id:'pickaxe_wood', name:'Pico de madera', cost:{wood:5}, requires:[], 
+    canMake:()=> !game.tools.pickaxe || game.tools.pickaxeTier===0,
+    make:()=>{
+      game.tools.pickaxe=true; game.tools.pickaxeTier=1;
+      toast('Pico de madera — ahora puedes minar piedra');
+    }
+  },
+  {id:'spear_wood', name:'Lanza de madera', cost:{wood:4,fiber:1}, requires:[], 
+    canMake:()=> !game.tools.spear || game.tools.spearTier===0,
+    make:()=>{
+      game.tools.spear=true; game.tools.spearTier=1;
+      toast('Lanza de madera fabricada');
+    }
+  },
+  // — HERRAMIENTAS DE PIEDRA (reemplazan a las de madera) —
+  {id:'axe_stone', name:'Hacha de piedra', cost:{wood:3,stone:4}, requires:[], tableOnly:true,
+    canMake:()=> game.tools.axe && game.tools.axeTier===1,
+    make:()=>{
+      game.tools.axeTier=2;
+      toast('Hacha de piedra — más eficiente. Reemplaza la de madera.');
+    }
+  },
+  {id:'pickaxe_stone', name:'Pico de piedra', cost:{wood:3,stone:5}, requires:[], tableOnly:true,
+    canMake:()=> game.tools.pickaxe && game.tools.pickaxeTier===1,
+    make:()=>{
+      game.tools.pickaxeTier=2;
+      toast('Pico de piedra — mina más rápido. Reemplaza el de madera.');
+    }
+  },
+  {id:'spear_stone', name:'Lanza de piedra', cost:{wood:2,stone:3,fiber:1}, requires:[], tableOnly:true,
+    canMake:()=> game.tools.spear && game.tools.spearTier===1,
+    make:()=>{
+      game.tools.spearTier=2;
+      toast('Lanza de piedra — más fuerte. Reemplaza la de madera.');
+    }
+  },
+  // — HERRAMIENTAS DE HIERRO (solo en mesa) —
+  {id:'axe_iron', name:'Hacha de hierro', cost:{iron:2,wood:2,rope:1}, requires:[], tableOnly:true,
+    canMake:()=> game.tools.axe && game.tools.axeTier===2,
+    make:()=>{ game.tools.axeTier=3; toast('Hacha de hierro — máxima eficiencia de tala'); }
+  },
+  {id:'pickaxe_iron', name:'Pico de hierro', cost:{iron:2,wood:2,rope:1}, requires:[], tableOnly:true,
+    canMake:()=> game.tools.pickaxe && game.tools.pickaxeTier===2,
+    make:()=>{ game.tools.pickaxeTier=3; toast('Pico de hierro — mina cristales y hierro más rápido'); }
+  },
+  // — CONSTRUCCIÓN —
+  {id:'campfire', name:'Hoguera', cost:{wood:6,stone:5}, requires:[], make:()=>{
+    game.built.campfire = {x:game.player.x,y:game.player.y};
+    toast('Hoguera colocada'); checkObjectives();
+  }},
+  {id:'table', name:'Mesa de crafteo', cost:{wood:8,stone:2}, requires:['campfire'], make:()=>{
+    const cf = game.built.campfire;
+    game.built.table={x:cf.x+65, y:cf.y+30}; toast('Mesa de crafteo construida — ¡nuevas recetas disponibles!'); checkObjectives();
+  }},
+  {id:'wall', name:'Pared', cost:{wood:4}, requires:['table'], tableOnly:true, make:()=>{
+    game.built.wall.push({x:0,y:0});
+    const n = game.built.wall.length;
+    const labels=['muro trasero','muro izquierdo','muro derecho','muro frontal (con puerta)','refuerzo de esquinas','refuerzo extra'];
+    toast(`Pared ${n}/8 — ${labels[n-1]||'refuerzo'}`); checkObjectives();
+  }},
+  {id:'roof', name:'Techo', cost:{wood:10,fiber:4}, requires:['table'], tableOnly:true, make:()=>{
+    const base = game.built.campfire || {x:game.player.x, y:game.player.y};
+    game.built.roof={x:base.x, y:base.y}; toast('Techo construido'); checkObjectives();
+  }},
+  {id:'torch', name:'Antorcha', cost:{wood:2,fiber:1}, requires:['campfire'], make:()=>{
+    game.built.torch.push({x:game.player.x,y:game.player.y}); toast('Antorcha colocada'); checkObjectives();
+  }},
+  {id:'bed', name:'Cama de fibra', cost:{fiber:6,wood:3}, requires:['table'], tableOnly:true, make:()=>{
+    const base = game.built.campfire || {x:game.player.x,y:game.player.y};
+    game.built.bed={x:base.x-30, y:base.y+20}; toast('Cama colocada — puedes dormir aquí');
+  }},
+  {id:'rope', name:'Cuerda', cost:{fiber:3}, requires:[], make:()=>{
+    game.inv.rope++; toast('+1 cuerda'); checkObjectives();
+  }},
+  {id:'raft', name:'Balsa', cost:{wood:15,rope:4}, requires:['table'], tableOnly:true, make:()=>{
+    game.built.raft={x:game.player.x,y:game.player.y}; toast('Balsa construida — acércate a ella y pulsa ESPACIO para zarpar'); checkObjectives();
+  }},
+  {id:'plank', name:'Tablón', cost:{wood:4}, requires:['table'], tableOnly:true, make:()=>{
+    game.inv.plank++; toast('+1 tablón'); checkObjectives();
+  }},
+  {id:'boatRepair', name:'Pieza del bote', cost:{plank:1,iron:1}, requires:['table'], tableOnly:true, make:()=>{
+    game.built.boatRepair++; toast(`Bote reparado: ${game.built.boatRepair}/5`);
+    if(game.built.boatRepair>=5){
+      game.storyFlags.boatRepaired=true; toast('Bote reparado — instala el cristal volcánico para zarpar');
+    }
+    checkObjectives();
+  }},
+  {id:'boatCrystal', name:'Instalar cristal volcánico', cost:{crystal:1}, requires:['table'], tableOnly:true, make:()=>{
+    game.storyFlags.crystalInstalled = true;
+    toast('Cristal instalado en el bote — ya puedes escapar desde la playa');
+    checkObjectives();
+  }},
+  // — RECETAS AVANZADAS (solo en mesa) —
+  {id:'cooked_meal', name:'Comida cocinada', cost:{berry:4,seed:2}, requires:['campfire'], tableOnly:true,
+    make:()=>{ game.hg=Math.min(100,game.hg+45); game.hp=Math.min(100,game.hp+10); toast('Comida cocinada — +45 hambre, +10 salud'); sfxComplete(); }
+  },
+  {id:'water_flask', name:'Cantimplora de agua', cost:{fiber:4,rope:1}, requires:[], tableOnly:true,
+    make:()=>{ game.inv.water=(game.inv.water||0)+5; toast('+5 agua almacenada'); renderInv(); }
+  },
+  {id:'bandage', name:'Vendaje de fibra', cost:{fiber:3}, requires:[], tableOnly:true,
+    make:()=>{ game.hp=Math.min(100,game.hp+25); toast('Vendaje aplicado — +25 salud'); sfxComplete(); }
+  },
+];
+
+const TOOLS_LIST = ['hand','axe','pickaxe','spear','observer','torch'];
+const TOOL_ICONS = {hand:'✊',axe:'🪓',pickaxe:'⛏',spear:'🗡',observer:'🔭',torch:'🔥'};
+
+// ---------- Inventory render ----------
+const INV_DEF = [
+  {key:'wood',  icon:'🪵', label:'Madera'},
+  {key:'stone', icon:'🪨', label:'Piedra'},
+  {key:'fiber', icon:'🌿', label:'Fibra'},
+  {key:'berry', icon:'🫐', label:'Bayas'},
+  {key:'seed',  icon:'🌱', label:'Semilla'},
+  {key:'crystal',icon:'💎',label:'Cristal'},
+  {key:'iron',  icon:'⚙', label:'Hierro'},
+  {key:'water', icon:'💧',label:'Agua'},
+  {key:'rope',  icon:'➰',label:'Cuerda'},
+  {key:'plank', icon:'🟫',label:'Tablón'},
+];
+
+function renderInv(){
+  const inv = document.getElementById('inv');
+  inv.innerHTML = '';
+  // Tool slots first
+  TOOLS_LIST.forEach((t,i)=>{
+    if(t!=='hand' && !game.tools[t] && t!=='observer') return;
+    const div = document.createElement('div');
+    div.className = 'slot';
+    div.style.borderColor = (i===game.player.toolIdx) ? 'var(--accent)' : 'var(--panel-border)';
+    div.innerHTML = `<div class="icon">${TOOL_ICONS[t]}</div><div style="font-size:9px;color:var(--ink-dim)">${i+1}</div>`;
+    div.onclick = ()=>{ game.player.toolIdx = i; renderInv(); };
+    inv.appendChild(div);
+  });
+  // Spacer
+  const sp = document.createElement('div'); sp.style.width='10px'; inv.appendChild(sp);
+  // Resource slots
+  INV_DEF.forEach(it=>{
+    if(game.inv[it.key]<=0) return;
+    const div = document.createElement('div');
+    div.className = 'slot';
+    div.innerHTML = `<div class="icon">${it.icon}</div><div class="qty">${game.inv[it.key]}</div>`;
+    inv.appendChild(div);
+  });
+}
+
+// ---------- Mission render ----------
+function renderMissions(){
+  const day = DAYS[game.day]; if(!day) return;
+  document.getElementById('missionTitle').textContent = day.title;
+  const ul = document.getElementById('missionList'); ul.innerHTML = '';
+  day.objectives.forEach(o=>{
+    const done = game.missions[o.id];
+    const li = document.createElement('li'); li.textContent = o.label;
+    if(done) li.classList.add('done');
+    ul.appendChild(li);
+  });
+  document.getElementById('hint').textContent = day.hint;
+}
+
+function checkObjectives(){
+  const day = DAYS[game.day]; if(!day) return;
+  let allDone = true;
+  day.objectives.forEach(o=>{
+    if(!o.manual){
+      const wasDone = game.missions[o.id];
+      const now = o.check();
+      if(now && !wasDone){
+        game.missions[o.id] = true; sfxComplete();
+        toast(`Objetivo completado: ${o.label}`);
+      } else if(!wasDone && !now){
+        // not yet done, stays false — but don't reset if already done
+        game.missions[o.id] = false;
+      }
+      // once done, stays done (wasDone && !now => keep true)
+    }
+    if(!game.missions[o.id]) allDone = false;
+  });
+  renderMissions();
+  // Update sleep hint
+  const allButSleep = day.objectives.every(o=> o.manual ? true : game.missions[o.id]);
+  game.canSleep = allButSleep;
+}
+
+// ---------- HUD update ----------
+function updateHUD(){
+  document.getElementById('dayNum').textContent = game.day;
+  const h = Math.floor(game.time);
+  const m = Math.floor((game.time-h)*60);
+  document.getElementById('timeStr').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  let phase = 'Amanecer';
+  if(h>=8 && h<17) phase='Día';
+  else if(h>=17 && h<20) phase='Atardecer';
+  else if(h>=20 || h<5) phase='Noche';
+  document.getElementById('phaseStr').innerHTML = `<b>${phase}</b>`;
+  game.phase = phase;
+  document.getElementById('hpBar').style.width = game.hp+'%';
+  document.getElementById('hgBar').style.width = game.hg+'%';
+  document.getElementById('thBar').style.width = game.th+'%';
+  document.getElementById('enBar').style.width = game.en+'%';
+  document.getElementById('evBar').style.width = game.evo+'%';
+  document.getElementById('hpVal').textContent = Math.floor(game.hp);
+  document.getElementById('hgVal').textContent = Math.floor(game.hg);
+  document.getElementById('thVal').textContent = Math.floor(game.th);
+  document.getElementById('enVal').textContent = Math.floor(game.en);
+  document.getElementById('evVal').textContent = Math.floor(game.evo);
+  // Show finch upgrades in HUD
+  const ups = game.finchUpgrades||[];
+  let upEl = document.getElementById('finchUps');
+  if(!upEl){
+    upEl = document.createElement('div');
+    upEl.id='finchUps';
+    upEl.style.cssText='font-size:11px;color:var(--accent-soft);margin-top:2px;letter-spacing:0.02em;';
+    document.getElementById('evVal').parentElement.appendChild(upEl);
+  }
+  if(ups.length>0){
+    const icons={'groundBeak':'🌱','cactusBeak':'🌵','deepBeak':'🪲','toolBeak':'⚒','survivalBeak':'🦴','warblerBeak':'🎵'};
+    upEl.textContent = 'Picos: '+ups.map(u=>icons[u]||'✦').join(' ')+' (×'+game.evoResets+')';
+  } else { upEl.textContent=''; }
+}
+
+// ---------- Toast / dialog ----------
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.style.display='none'; },2400);
+}
+let dialogTimer;
+function darwinSays(text){
+  const el = document.getElementById('dialog');
+  el.textContent = '“'+text+'”'; el.style.display='block';
+  clearTimeout(dialogTimer);
+  dialogTimer = setTimeout(()=>{ el.style.display='none'; },4500);
+}
+
+// ---------- Journal ----------
+// Categories: discovery, resource, crafted, event, observation
+function addJournal(text, category='event'){ 
+  const hour = Math.floor(game.time);
+  const min = Math.floor((game.time - hour)*60);
+  const timeStr = `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  game.journal.push({day:game.day, text, category, time:timeStr}); 
+}
+
+const CATEGORY_ICONS = {
+  discovery:'🔍', resource:'🪵', crafted:'⚒', event:'📖', observation:'🔭', survival:'❤️'
+};
+
+function openJournal(){
+  const c = document.getElementById('journalContent');
+  if(game.journal.length===0){ 
+    c.innerHTML = '<p style="color:var(--ink-dim);font-style:italic;text-align:center;padding:20px;">El diario está en blanco. Sobrevive y observa para llenarlo.</p>'; 
+  } else {
+    // Group by day
+    const byDay = {};
+    game.journal.forEach(e=>{
+      if(!byDay[e.day]) byDay[e.day] = [];
+      byDay[e.day].push(e);
+    });
+    c.innerHTML = Object.entries(byDay).map(([d, entries])=>{
+      const dayTitle = DAYS[d] ? DAYS[d].title : `Día ${d}`;
+      const rows = entries.map(e=>{
+        const icon = CATEGORY_ICONS[e.category]||'📝';
+        const timeTag = e.time ? `<span style="font-size:11px;color:var(--ink-dim);margin-left:6px;">${e.time}</span>` : '';
+        return `<div style="display:flex;gap:10px;align-items:flex-start;margin:8px 0;padding:8px;background:rgba(0,0,0,.2);border-radius:4px;border-left:2px solid var(--panel-border);">
+          <span style="font-size:18px;flex-shrink:0;">${icon}</span>
+          <div><span style="font-size:14px;color:var(--ink);line-height:1.5;">${e.text}</span>${timeTag}</div>
+        </div>`;
+      }).join('');
+      return `<h3 style="margin-top:16px;">📅 ${dayTitle}</h3>${rows}`;
+    }).join('');
+  }
+  document.getElementById('journalModal').classList.add('show');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+// ---------- Crafting modal ----------
+function openCraft(){
+  const list = document.getElementById('craftList'); list.innerHTML = '';
+
+  const hasTable = !!game.built.table;
+
+  // Separate recipes into basic and table-only
+  const basicRecipes  = RECIPES.filter(r=>!r.tableOnly && !r.id.endsWith('_stone') && !r.id.endsWith('_iron'));
+  const stoneRecipes  = RECIPES.filter(r=>r.id.endsWith('_stone'));
+  const ironRecipes   = RECIPES.filter(r=>r.id.endsWith('_iron'));
+  const tableRecipes  = RECIPES.filter(r=>r.tableOnly && !r.id.endsWith('_stone') && !r.id.endsWith('_iron'));
+
+  function addSection(title, items, needsTable=false){
+    if(!items.length) return;
+    const h = document.createElement('h3');
+    h.textContent = title;
+    if(needsTable && !hasTable){
+      h.innerHTML = `${title} <span style="color:var(--bad);font-size:12px;">[requiere mesa de crafteo]</span>`;
+    }
+    list.appendChild(h);
+    items.forEach(r=>{
+      const reqOk = (r.requires||[]).every(x=>{
+        if(x==='campfire') return !!game.built.campfire;
+        if(x==='table') return !!game.built.table;
+        return true;
+      });
+      const tableOk = !r.tableOnly || hasTable;
+      const canPay = Object.entries(r.cost).every(([k,v])=>game.inv[k]>=v);
+      const canMakeResult = r.canMake ? r.canMake() : true;
+      const div = document.createElement('div'); div.className='recipe';
+      if(needsTable && !hasTable) div.style.opacity='0.45';
+      const cost = Object.entries(r.cost).map(([k,v])=>`${v} ${k}`).join(' · ');
+      let statusNote = '';
+      if(!canMakeResult && r.id.endsWith('_wood') && game.tools[r.id.replace('_wood','')]) statusNote = ' <span style="color:var(--good);font-size:12px;">✓ Ya tienes una</span>';
+      if(!canMakeResult && (r.id.endsWith('_stone')||r.id.endsWith('_iron'))) statusNote = ' <span style="color:var(--ink-dim);font-size:12px;">(necesitas la versión anterior primero)</span>';
+      const tableTag = r.tableOnly ? '<span style="color:var(--accent);font-size:10px;"> ⚒ Mesa</span>' : '';
+      div.innerHTML = `<div class="info"><div class="name">${r.name}${tableTag}${statusNote}</div><div class="cost">${cost}${(r.requires||[]).length?' · requiere: '+(r.requires||[]).join(', '):''}</div></div>`;
+      const btn = document.createElement('button');
+      btn.textContent = r.id.endsWith('_stone')||r.id.endsWith('_iron') ? 'Mejorar' : 'Crear';
+      btn.disabled = !(reqOk && tableOk && canPay && canMakeResult);
+      btn.onclick = ()=>{
+        if(!reqOk||!tableOk||!canPay||!canMakeResult) return;
+        Object.entries(r.cost).forEach(([k,v])=>game.inv[k]-=v);
+        r.make(); sfxCraft(); renderInv(); openCraft(); checkObjectives();
+      };
+      div.appendChild(btn);
+      list.appendChild(div);
+    });
+  }
+
+  addSection('Crafteo básico (a mano)', basicRecipes, false);
+  addSection('Mejoras de piedra ⚒', stoneRecipes, true);
+  addSection('Herramientas de hierro ⚒', ironRecipes, true);
+  addSection('Construcción y recursos ⚒', tableRecipes, true);
+
+  if(!hasTable){
+    const note = document.createElement('p');
+    note.style.cssText='color:var(--accent-soft);font-style:italic;margin-top:14px;font-size:13px;border-top:1px solid var(--panel-border);padding-top:10px;';
+    note.textContent='💡 Construye una mesa de crafteo (hoguera + 8 madera + 2 piedra) para desbloquear recetas avanzadas.';
+    list.appendChild(note);
+  }
+
+  document.getElementById('craftModal').classList.add('show');
+}
+
+// ---------- Input ----------
+const keys = {};
+addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(e.key==='Shift') keys['shift'] = true;
+  if(e.key.toLowerCase()==='c') openCraft();
+  if(e.key.toLowerCase()==='j') openJournal();
+  if(e.key.toLowerCase()==='e') trySleep();
+  if(e.key===' '){ e.preventDefault(); interact(); }
+  if(e.key>='1' && e.key<='6'){
+    const n = parseInt(e.key)-1;
+    if(n<TOOLS_LIST.length){
+      // only set if owned
+      const t = TOOLS_LIST[n];
+      if(t==='hand' || t==='observer' || game.tools[t]){
+        game.player.toolIdx = n; renderInv();
+      }
+    }
+  }
+  if(e.key==='Escape'){ closeModal('craftModal'); closeModal('journalModal'); }
+});
+addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; if(e.key==='Shift') keys['shift']=false; });
+canvas.addEventListener('mousedown', e=>{
+  if(!game.started) return;
+  // click = use tool on nearest entity
+  interact();
+});
+
+// ---------- Find nearest entity ----------
+function currentEnts(){ return game.map==='beach' ? beachEnts : volcanoEnts; }
+function currentMap(){ return game.map==='beach' ? beachMap : volcanoMap; }
+function worldSize(){ return game.map==='beach' ? {w:WORLD_W,h:WORLD_H} : {w:VOLCANO_W,h:VOLCANO_H}; }
+
+function nearestEnt(maxDist=44){
+  let best=null, bd=maxDist;
+  currentEnts().forEach(e=>{
+    if(e.collected) return;
+    const d = Math.hypot(e.x-game.player.x, e.y-game.player.y);
+    if(d<bd){ bd=d; best=e; }
+  });
+  // Also consider built structures
+  return best;
+}
+
+function interact(){
+  const e = nearestEnt(50);
+
+  // Raft travel — beach → volcano
+  if(game.map==='beach' && game.built.raft){
+    const d = Math.hypot(game.built.raft.x-game.player.x, game.built.raft.y-game.player.y);
+    if(d<72){
+      travelTo('volcano'); return;
+    }
+  }
+  // Return raft on volcano island (fixed position near shore)
+  if(game.map==='volcano'){
+    const rx = VOLCANO_W/2 + 180, ry = VOLCANO_H - 380;
+    const d = Math.hypot(rx-game.player.x, ry-game.player.y);
+    if(d<72){ travelTo('beach'); return; }
+  }
+  // Boat escape (Day 5)
+  if(game.day===5 && game.storyFlags.boatRepaired && game.storyFlags.crystalInstalled && game.map==='beach'){
+    const bx = WORLD_W/2 + 200, by = WORLD_H/2 + 350;
+    const dist = Math.hypot(bx-game.player.x, by-game.player.y);
+    if(dist<70){
+      game.storyFlags.escaped = true; checkObjectives();
+      triggerEscape(); return;
+    }
+  }
+  if(!e) return;
+  const tool = TOOLS_LIST[game.player.toolIdx];
+  switch(e.type){
+    case 'driftwood':
+      hitEnt(e,1); sfxChop(); break;
+    case 'tree':
+      hitEnt(e, tool==='axe'?2:1); sfxChop(); break;
+    case 'rock':
+      if(tool!=='pickaxe'){ darwinSays('Necesito un pico para extraer piedra. Fabrícalo con madera y piedra.'); return; }
+      hitEnt(e, tool==='pickaxe'?2:1); sfxStone(); break;
+    case 'bush':
+      if(e.respawn>0){ toast('Aún no hay bayas'); return; }
+      gather('berry', 2);
+      // Sometimes also seed
+      if(Math.random()<0.6){ gather('seed',1); game.storyFlags.seedsGathered++; checkObjectives(); }
+      e.respawn = 30; sfxPickup(); break;
+    case 'cactus':
+      hitEnt(e,1); sfxChop(); break;
+    case 'pond':
+      gather('water',3); game.th = Math.min(100, game.th+20); toast('+ agua'); sfxPickup(); break;
+    case 'finch':
+      if(tool!=='observer'){ darwinSays('Necesito el catalejo (tecla 5) para observar.'); return; }
+      if(!e.observed){
+        e.observed = true;
+        game.storyFlags.finchSeen[e.species]=true;
+        darwinSays(`Pinzón ${e.species} observado. Pico: ${pickShape(e.species)}.`);
+        addJournal(`Observación: pinzón ${e.species}. Su pico parece adaptado a ${pickShape(e.species)}.`);
+        sfxComplete();
+        // Evolution progress
+        game.evo = Math.min(100, game.evo + 18);
+        checkObjectives();
+      } else { darwinSays('Ya he tomado nota de este ejemplar.'); }
+      break;
+    case 'injuredFinch':
+      if(!e.debrisCleared){
+        if(tool==='axe'||tool==='pickaxe'||tool==='spear'){
+          e.debrisCleared = true; darwinSays('He apartado los restos. El pájaro está vivo.'); sfxChop();
+        } else {
+          darwinSays('Hay restos pesados encima. Necesito una herramienta.');
+        }
+      } else if(!e.fed){
+        if(game.inv.berry>=1){ game.inv.berry--; e.fed=true; game.storyFlags.finchRescued=true;
+          darwinSays('Ha comido. Sus ojos brillan otra vez. Me sigue ya como una sombra.');
+          game.finchCompanion.active = true;
+          sfxComplete(); checkObjectives();
+        } else { darwinSays('Necesita alimento. Bayas, quizá.'); }
+      } else { darwinSays('El pinzón descansa.'); }
+      break;
+    case 'crystal':
+      if(tool!=='pickaxe'){ darwinSays('La roca es demasiado dura. Necesito un pico.'); return; }
+      hitEnt(e,2); sfxStone(); break;
+    case 'ironOre':
+      if(tool!=='pickaxe'){ darwinSays('Esto es mineral. Necesito un pico.'); return; }
+      hitEnt(e,2); sfxStone(); break;
+    case 'tortoise':
+      if(tool!=='observer'){ darwinSays('Debo observarla con calma — tecla 5.'); return; }
+      if(!e.observed){
+        e.observed=true; game.storyFlags.tortoiseObserved++;
+        darwinSays('Tortuga gigante. Su caparazón es único de esta isla.');
+        addJournal('He medido el caparazón de la tortuga. Distintos en cada isla. Como si cada lugar moldeara a su propia raza.');
+        sfxComplete(); checkObjectives();
+      } else darwinSays('Ya está catalogada.');
+      break;
+    case 'wreck':
+      if(tool!=='pickaxe' && tool!=='axe'){ darwinSays('Necesito una herramienta para desmontar los restos.'); return; }
+      gather('iron',1); e.collected=true; sfxStone(); checkObjectives(); break;
+    case 'vent':
+      sfxHurt(); game.hp = Math.max(0, game.hp-8); toast('¡Quema!'); break;
+  }
+  renderInv();
+}
+
+function pickShape(sp){
+  return ({
+    ground:'semillas duras',
+    tree:'insectos en cortezas',
+    warbler:'frutas pequeñas',
+    cactus:'flores y néctar',
+  })[sp]||'algo particular';
+}
+
+function hitEnt(e,dmg){
+  e.hp -= dmg;
+  spawnParticles(e.x,e.y,'#d4b878',6);
+  if(e.hp<=0){
+    if(e.res){ gather(e.res, e.amount); }
+    e.collected = true;
+  }
+}
+function gather(k,n){
+  let bonus = 0;
+  const ups = game.finchUpgrades||[];
+  if(k==='seed' && ups.includes('groundBeak')) bonus += 2;
+  if(k==='fiber' && ups.includes('cactusBeak')) bonus += 2;
+  if((k==='wood'||k==='stone') && ups.includes('survivalBeak')){
+    game.hg = Math.min(100, game.hg+10);
+  }
+  game.inv[k] = (game.inv[k]||0)+n+bonus;
+  toast(`+${n+bonus} ${k}${bonus>0?' 🐦':''}${bonus>0?' (mejora pico)':''}`);
+  checkObjectives();
+}
+
+// ---------- Particles ----------
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    game.particles.push({
+      x,y,vx:(Math.random()-0.5)*60,vy:(Math.random()-0.5)*60-20,
+      life:0.6+Math.random()*0.4,age:0,color
+    });
+  }
+}
+
+// ---------- Sleep / day transition ----------
+function trySleep(){
+  if(!game.canSleep){ darwinSays('Aún no he completado todo lo del día.'); return; }
+  // Check sleep location
+  const day = DAYS[game.day];
+  if(game.day===1){
+    if(!nearBuilt(game.built.campfire,80)){ darwinSays('Debería dormir junto a la hoguera.'); return; }
+  } else if(game.day===2 || game.day===4){
+    if(!game.built.bed && !game.built.roof){ darwinSays('Necesito dormir en un refugio.'); return; }
+  } else if(game.day===3){
+    if(game.map!=='beach'){ darwinSays('Debo regresar a la base antes de dormir.'); return; }
+    if(!nearBuilt(game.built.campfire,200) && !game.built.bed){ darwinSays('Necesito mi base para descansar.'); return; }
+  }
+  // Mark sleep mission complete
+  day.objectives.forEach(o=>{ if(o.id==='sleep') game.missions.sleep=true; });
+  // Run completion narrative
+  day.onComplete && day.onComplete();
+  // Day storm scripted on day 4
+  fadeNextDay();
+}
+
+function nearBuilt(b,r){ if(!b) return false; return Math.hypot(b.x-game.player.x,b.y-game.player.y)<r; }
+
+function fadeNextDay(){
+  const f = document.getElementById('fader');
+  document.getElementById('faderText').innerHTML = `Durmiendo<span class="sub">El fuego crepita</span>`;
+  f.classList.add('show');
+  setTimeout(()=>{
+    game.day++;
+    if(game.day>5){
+      // ending
+      f.querySelector('.text').innerHTML = `Fin<span class="sub">El bote se aleja</span>`;
+      saveGame(); return;
+    }
+    game.time = 6; game.hp = Math.min(100, game.hp+30); game.hg = 60; game.th = 60; game.en = 100;
+    game.missions = {};
+    saveDaySnapshot(); // <-- save state at start of new day for death respawn
+    // Story setup per day
+    if(game.day===4){
+      scheduleStorm();
+      // Garantizar 10 árboles frescos en la playa al inicio del día 4
+      let spawned=0;
+      for(let att=0;att<800&&spawned<10;att++){
+        const x=200+Math.random()*(WORLD_W-400), y=200+Math.random()*(WORLD_H-400);
+        if(getTileAt(beachMap,x,y)===1){
+          beachEnts.push({type:'tree',x,y,hp:4,res:'wood',amount:3});
+          spawned++;
+        }
+      }
+    }
+    if(game.day===5){ /* eruption ramps later */ }
+    // Auto open journal in the morning
+    document.getElementById('faderText').innerHTML = `Día ${game.day}<span class="sub">${DAYS[game.day].title.split('—')[1].trim()}</span>`;
+    setTimeout(()=>{
+      f.classList.remove('show');
+      checkObjectives(); renderMissions();
+      openJournal();
+      saveGame();
+    }, 1800);
+  }, 1800);
+}
+
+function showUpgradePopup(upg){
+  const el = document.getElementById('upgradePopup');
+  if(!el){
+    const d = document.createElement('div');
+    d.id='upgradePopup';
+    d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-60%);background:var(--panel);border:2px solid var(--accent);border-radius:14px;padding:28px 36px;z-index:300;text-align:center;max-width:340px;box-shadow:0 8px 40px rgba(0,0,0,0.7);';
+    document.body.appendChild(d);
+  }
+  const popup = document.getElementById('upgradePopup');
+  popup.innerHTML=`
+    <div style="font-size:52px;margin-bottom:8px">${upg.icon}</div>
+    <h2 style="color:var(--accent);margin:0 0 6px">Nueva adaptación</h2>
+    <h3 style="margin:0 0 10px;color:var(--ink)">${upg.name}</h3>
+    <p style="color:var(--ink-dim);font-style:italic;margin:0 0 18px">${upg.desc}</p>
+    <button class="btn" onclick="document.getElementById('upgradePopup').style.display='none'">¡Entendido!</button>
+  `;
+  popup.style.display='block';
+  setTimeout(()=>{ if(popup) popup.style.display='none'; }, 9000);
+}
+
+function saveDaySnapshot(){
+  try{
+    // Deep clone of core game state (not particles)
+    const snap = JSON.parse(JSON.stringify({
+      hp:game.hp, hg:game.hg, th:game.th, en:game.en,
+      inv:game.inv, tools:game.tools, built:game.built,
+      map:game.map, day:game.day, time:0,
+      player:{x:game.player.x, y:game.player.y},
+      finchCompanion:game.finchCompanion,
+      finchUpgrades:game.finchUpgrades, evoResets:game.evoResets, evo:game.evo,
+      storyFlags:game.storyFlags, journal:game.journal,
+      weather:'clear', weatherTimer:0, particles:[]
+    }));
+    game.dayStartSnapshot = JSON.stringify(snap);
+  }catch(e){}
+}
+
+function travelTo(map){
+  const f = document.getElementById('fader');
+  f.classList.add('show');
+  setTimeout(()=>{
+    game.map = map;
+    if(map==='volcano'){ game.player.x=VOLCANO_W/2+180; game.player.y=VOLCANO_H-480; }
+    else { game.player.x=WORLD_W/2; game.player.y=WORLD_H/2+300; }
+    setTimeout(()=>{ f.classList.remove('show'); checkObjectives(); }, 800);
+  }, 1500);
+}
+
+function triggerEscape(){
+  const f = document.getElementById('fader');
+  f.classList.add('show');
+  document.getElementById('faderText').innerHTML = `Has escapado<span class="sub">El pinzón te acompaña en el horizonte</span>`;
+  // Run completion narrative for day 5
+  DAYS[5].onComplete && DAYS[5].onComplete();
+  saveGame();
+  // After a moment, show victory screen
+  setTimeout(()=>{ showVictory(); }, 2800);
+}
+
+function showVictory(){
+  document.getElementById('fader').classList.remove('show');
+  const v = document.getElementById('victory');
+  document.getElementById('vJournal').innerHTML = game.journal.map(e=>`<h3>Día ${e.day}</h3><p>${e.text}</p>`).join('');
+  document.getElementById('vStats').innerHTML = `
+    <div><span>Pinzones observados</span><b>${Object.keys(game.storyFlags.finchSeen).length}</b></div>
+    <div><span>Tortugas catalogadas</span><b>${game.storyFlags.tortoiseObserved}</b></div>
+    <div><span>Evolución del pinzón</span><b>${Math.floor(game.evo)}%</b></div>
+    <div><span>Cristales recogidos</span><b>${game.inv.crystal}</b></div>
+    <div><span>Estructuras construidas</span><b>${(game.built.campfire?1:0)+(game.built.table?1:0)+game.built.wall.length+(game.built.roof?1:0)+game.built.torch.length+(game.built.bed?1:0)+(game.built.raft?1:0)}</b></div>
+  `;
+  v.classList.add('show');
+}
+function restartGame(){
+  localStorage.removeItem('darwinIslands');
+  location.reload();
+}
+
+// ---------- Storm scheduling ----------
+function scheduleStorm(){
+  setTimeout(()=>{
+    if(game.day===4){
+      game.weather = 'storm'; game.weatherTimer = 60; sfxThunder();
+      darwinSays('El cielo se ennegrece. Una tormenta como no he visto jamás.');
+    }
+  }, 30000); // ~30s real time after day starts
+}
+
+// ---------- Save/Load ----------
+function saveGame(){
+  try{
+    const data = JSON.stringify({game, beachEnts, volcanoEnts});
+    localStorage.setItem('darwinIslands', data);
+    game.lastSaved = Date.now();
+  }catch(e){}
+}
+function loadGame(){
+  try{
+    const raw = localStorage.getItem('darwinIslands'); if(!raw) return false;
+    const d = JSON.parse(raw);
+    Object.assign(game, d.game);
+    beachEnts = d.beachEnts; volcanoEnts = d.volcanoEnts;
+    // Parche: si el save antiguo no tiene tortugas, inyectarlas ahora
+    const hasBT = beachEnts.some(e=>e.type==='tortoise');
+    const hasVT = volcanoEnts.some(e=>e.type==='tortoise');
+    if(!hasBT){
+      let n=0;
+      for(let att=0;att<800&&n<5;att++){
+        const x=300+Math.random()*(WORLD_W-600), y=300+Math.random()*(WORLD_H-600);
+        if(getTileAt(beachMap,x,y)===1){
+          beachEnts.push({type:'tortoise',x,y,vx:0,vy:0,timer:Math.random()*3,observed:false,size:0.9+Math.random()*0.6});
+          n++;
+        }
+      }
+    }
+    if(!hasVT){
+      let n=0;
+      for(let att=0;att<800&&n<8;att++){
+        const x=200+Math.random()*(VOLCANO_W-400), y=200+Math.random()*(VOLCANO_H-400);
+        if(getTileAt(volcanoMap,x,y)===1){
+          volcanoEnts.push({type:'tortoise',x,y,vx:0,vy:0,timer:Math.random()*3,observed:false,size:0.8+Math.random()*0.5});
+          n++;
+        }
+      }
+    }
+    // Parche: hierro insuficiente en saves viejos
+    const ironCount = volcanoEnts.filter(e=>e.type==='ironOre'&&!e.collected).length;
+    if(ironCount < 10){
+      let added=0;
+      for(let att=0;att<600&&added<(20-ironCount);att++){
+        const x=Math.random()*VOLCANO_W, y=Math.random()*VOLCANO_H;
+        const t=getTileAt(volcanoMap,x,y);
+        if(t===2||t===1){ volcanoEnts.push({type:'ironOre',x,y,hp:4,res:'iron',amount:1}); added++; }
+      }
+    }
+    return true;
+  }catch(e){ return false; }
+}
+setInterval(()=>{ if(game.started) saveGame(); }, 60000);
+
+// ---------- Game start ----------
+function startGame(load){
+  document.getElementById('title').classList.add('hidden');
+  document.querySelectorAll('.ui').forEach(el=>el.classList.remove('hidden'));
+  if(load) loadGame();
+  game.started = true;
+  if(!load){
+    // Intro storm flash
+    setTimeout(()=>{ sfxThunder(); darwinSays('Despierto en una orilla extraña. La sal me arde en la garganta.'); }, 600);
+    setTimeout(()=>{ darwinSays('La marea trajo trozos de madera. Quizá pueda hacer un fuego.'); }, 4500);
+  } else {
+    darwinSays('Continúo donde lo dejé.');
+  }
+  renderInv(); renderMissions(); checkObjectives(); updateHUD();
+  saveDaySnapshot();
+  loop();
+}
+
+// Show/hide load button if save exists
+if(localStorage.getItem('darwinIslands')){
+  document.getElementById('loadBtn').style.display = '';
+} else {
+  document.getElementById('loadBtn').style.display = 'none';
+}
+
+// ---------- Update / Render loop ----------
+let last = performance.now();
+function loop(now=performance.now()){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if(game.started) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  // Time progression: 1 in-game hour ≈ 60 real seconds at base
+  game.time += dt * (1/60);
+  if(game.time>=24) game.time = 0;
+
+  // Movement
+  const speed = 160;
+  const ax = (keys['d']?1:0) - (keys['a']?1:0);
+  const ay = (keys['s']?1:0) - (keys['w']?1:0);
+  const len = Math.hypot(ax,ay) || 1;
+  // Correr con Shift (solo si hay energía)
+  const isRunning = (keys['shift']) && !!(ax||ay) && game.en > 8;
+  const runMult = isRunning ? 1.95 : 1.0;
+  game.player.vx = (ax/len)*speed*runMult;
+  game.player.vy = (ay/len)*speed*runMult;
+  game.player.isRunning = isRunning;
+  if(ax||ay){ game.player.dir = Math.atan2(ay,ax); game.player.facing = ax>=0?1:-1; }
+
+  let nx = game.player.x + game.player.vx*dt;
+  let ny = game.player.y + game.player.vy*dt;
+  const ws = worldSize();
+  nx = Math.max(20, Math.min(ws.w-20, nx));
+  ny = Math.max(20, Math.min(ws.h-20, ny));
+  const t = getTileAt(currentMap(), nx, ny);
+  // Darwin NO puede nadar — bloquear tiles de agua
+  if(t===3){
+    nx = game.player.x;
+    ny = game.player.y;
+  }
+  if(t===4){ // lava damage
+    game.hp = Math.max(0, game.hp - 25*dt); spawnParticles(nx,ny,'#ff6b3a',1);
+  }
+  game.player.x = nx; game.player.y = ny;
+
+  // Stat decay — ritmo más lento
+  const runPen = isRunning ? 2.2 : 1.0;
+  const warblerMult = (game.finchUpgrades||[]).includes('warblerBeak') ? 0.7 : 1.0;
+  game.hg = Math.max(0, game.hg - dt*0.28*runPen*warblerMult);
+  game.th = Math.max(0, game.th - dt*0.38*runPen*warblerMult);
+  // Energía: se drena al correr, se regenera al caminar o descansar
+  if(isRunning){
+    game.en = Math.max(0, game.en - dt*4.0);
+  } else if(ax||ay){
+    game.en = Math.min(100, game.en + dt*0.8);
+  } else {
+    game.en = Math.min(100, game.en + dt*2.0);
+  }
+  if(game.hg<=0||game.th<=0) game.hp = Math.max(0, game.hp - dt*1.5);
+  // Regenerar vida cuando hambre y sed están altas
+  if(game.hg>=75 && game.th>=75 && game.hp<100){
+    game.hp = Math.min(100, game.hp + dt*1.8);
+  }
+  if(game.hp<=0){
+    // Darwin muere — vuelve al inicio del día
+    const snap = game.dayStartSnapshot;
+    if(snap){
+      Object.assign(game, JSON.parse(snap));
+      toast('💀 Darwin ha caído. Regresa al amanecer del día...');
+      spawnParticles(game.player.x, game.player.y, '#ff5252', 16);
+    } else {
+      game.hp=1; game.hg=40; game.th=40; game.en=50;
+      toast('Estás muy débil. Come, bebe, descansa.');
+    }
+  }
+
+  // Auto-eat berries when hungry
+  if(keys['q'] && game.inv.berry>0){ game.inv.berry--; game.hg=Math.min(100,game.hg+15); toast('+15 hambre'); blip(540,0.06); }
+  if(keys['r'] && game.inv.water>0){ game.inv.water--; game.th=Math.min(100,game.th+20); toast('+20 sed'); blip(640,0.06); }
+
+  // Bush respawn timer + tree/cactus regrowth
+  const ents = currentEnts();
+  const map2 = currentMap();
+  const ws3 = worldSize();
+  ents.forEach(e=>{
+    if(e.type==='bush' && e.respawn>0) e.respawn -= dt;
+    // Trees regrow after being cut (respawnTimer counts down)
+    if(e.type==='tree' && e.collected){
+      if(!e.regrowTimer) e.regrowTimer = 90 + Math.random()*60; // 90-150s
+      e.regrowTimer -= dt;
+      if(e.regrowTimer<=0){
+        e.collected=false; e.hp=4; e.regrowTimer=0;
+      }
+    }
+    // Cactus regrow for fiber
+    if(e.type==='cactus' && e.collected){
+      if(!e.regrowTimer) e.regrowTimer = 60 + Math.random()*40;
+      e.regrowTimer -= dt;
+      if(e.regrowTimer<=0){ e.collected=false; e.hp=2; e.regrowTimer=0; }
+    }
+  });
+  // Spawn new saplings over time (1 new tree every ~120s if < 40 trees)
+  if(!game._treeSapTimer) game._treeSapTimer=0;
+  game._treeSapTimer += dt;
+  if(game._treeSapTimer >= 120){
+    game._treeSapTimer = 0;
+    const living = ents.filter(e=>e.type==='tree'&&!e.collected).length;
+    if(living < 40){
+      for(let att=0;att<200;att++){
+        const x=100+Math.random()*(ws3.w-200), y=100+Math.random()*(ws3.h-200);
+        if(getTileAt(map2,x,y)===1){
+          ents.push({type:'tree',x,y,hp:4,res:'wood',amount:3});
+          break;
+        }
+      }
+    }
+  }
+  // Feed companion finch with berry (F key or near finch + Q)
+  if(game.finchCompanion.active){
+    const fc = game.finchCompanion;
+    const nearFinch = Math.hypot(fc.x-game.player.x, fc.y-game.player.y)<60;
+    if(keys['f'] && nearFinch && game.inv.berry>0 && !game._finchFedCooldown){
+      game.inv.berry--;
+      game.evo = Math.min(99.9, game.evo+8);
+      toast('🐦 +8 evo — el pinzón come una baya');
+      game._finchFedCooldown=true;
+      setTimeout(()=>{ game._finchFedCooldown=false; },1200);
+      renderInv();
+    }
+    if(keys['f'] && nearFinch && game.inv.seed>0 && !game._finchFedCooldown){
+      game.inv.seed--;
+      game.evo = Math.min(99.9, game.evo+5);
+      toast('🐦 +5 evo — el pinzón come una semilla');
+      game._finchFedCooldown=true;
+      setTimeout(()=>{ game._finchFedCooldown=false; },1200);
+      renderInv();
+    }
+  }
+
+  // Finch and tortoise wandering — blocked by water
+  currentEnts().forEach(e=>{
+    if(e.type==='finch'||e.type==='tortoise'){
+      e.timer -= dt;
+      if(e.timer<=0){ e.timer = 2+Math.random()*3; e.vx=(Math.random()-0.5)*30; e.vy=(Math.random()-0.5)*30; }
+      const nx = e.x + e.vx*dt;
+      const ny = e.y + e.vy*dt;
+      const map = currentMap();
+      // Only move if destination is not water (tile 3) or lava (tile 4)
+      const destTile = getTileAt(map, nx, ny);
+      if(destTile !== 3 && destTile !== 4){
+        e.x = nx; e.y = ny;
+      } else {
+        // Bounce — pick a new random direction away from water
+        e.vx = -e.vx + (Math.random()-0.5)*20;
+        e.vy = -e.vy + (Math.random()-0.5)*20;
+        e.timer = 0; // pick new direction soon
+      }
+      const ws2 = worldSize();
+      e.x = Math.max(40,Math.min(ws2.w-40,e.x)); e.y = Math.max(40,Math.min(ws2.h-40,e.y));
+    }
+  });
+
+  // Companion finch follows
+  if(game.finchCompanion.active){
+    const fc = game.finchCompanion;
+    const dx = game.player.x - fc.x - 30, dy = game.player.y - fc.y - 30;
+    fc.x += dx*dt*1.5; fc.y += dy*dt*1.5;
+    fc.evoStage = Math.floor(game.evo/25);
+  }
+
+  // Particles
+  game.particles.forEach(p=>{ p.age+=dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 60*dt; });
+  game.particles = game.particles.filter(p=>p.age<p.life);
+
+  // Weather
+  if(game.weather==='storm'){
+    game.weatherTimer -= dt;
+    if(Math.random()<0.005){ sfxThunder(); }
+    if(game.weatherTimer<=0){
+      game.weather='clear';
+      if(game.day===4){ game.storyFlags.storm4Survived=true; checkObjectives(); }
+    }
+  }
+  // Day 5: lava expanding (visual)
+  if(game.day===5 && game.map==='volcano'){
+    game.weather='volcanic';
+  }
+
+  // Auto observe finches with companion (passive evo)
+  if(game.finchCompanion.active && game.day>=2){
+    // Finch upgrades can boost evo gain
+    const evoBon = game.finchUpgrades.includes('deepBeak') ? 1.5 : 1.0;
+    game.evo = Math.min(100, game.evo + dt*0.4*evoBon);
+  }
+
+  // Evo reset at 100 — unlock a perk and start again
+  if(game.evo>=100 && game.finchCompanion.active){
+    game.storyFlags.evoMaxReached = true;
+    game.evo = 0;
+    game.evoResets++;
+    // All possible upgrades in Darwin order (beak adaptations etc.)
+    const ALL_UPGRADES = [
+      {id:'groundBeak',  name:'Pico de semillas',   desc:'Recolectas +2 semillas extra por planta', icon:'🌱'},
+      {id:'cactusBeak',  name:'Pico de cactus',      desc:'Los cactus dan +3 fibra en lugar de 1',   icon:'🌵'},
+      {id:'deepBeak',    name:'Pico insectívoro',    desc:'La evo se acumula 50% más rápido',         icon:'🪲'},
+      {id:'toolBeak',    name:'Pico manipulador',    desc:'Todas las herramientas son 25% más eficientes', icon:'⚒'},
+      {id:'survivalBeak',name:'Pico carroñero',      desc:'Recuperas +10 hambre al recolectar madera o piedra', icon:'🦴'},
+      {id:'warblerBeak', name:'Pico cantor',         desc:'La sed y el hambre bajan un 30% más lento', icon:'🎵'},
+    ];
+    const available = ALL_UPGRADES.filter(u=>!game.finchUpgrades.includes(u.id));
+    if(available.length > 0){
+      const picked = available[0]; // next in sequence
+      game.finchUpgrades.push(picked.id);
+      toast(`🐦 ¡Evolución completa! El pinzón aprende: ${picked.icon} ${picked.name}`);
+      addJournal(`El pinzón ha completado su ciclo evolutivo (nº${game.evoResets}) y ha desarrollado: "${picked.name}" — ${picked.desc}`);
+      setTimeout(()=>{ showUpgradePopup(picked); }, 600);
+    } else {
+      toast('🐦 ¡El pinzón ha dominado todas las adaptaciones!');
+    }
+    sfxComplete();
+    saveGame();
+  }
+
+  // Objective check loop (cheap)
+  checkObjectives();
+  updateHUD();
+
+  // Vent damage
+  currentEnts().forEach(e=>{
+    if(e.type==='vent'){
+      e.timer -= dt;
+      if(e.timer<=0){ e.timer = 2+Math.random()*2; spawnParticles(e.x,e.y-10,'#ff8a3a',8); }
+      const d = Math.hypot(e.x-game.player.x,e.y-game.player.y);
+      if(d<35){ game.hp = Math.max(0,game.hp - dt*15); }
+    }
+  });
+}
+
+// ---------- Render ----------
+function render(){
+  // camera — zoom 1.4x closer to player
+  const ZOOM = 1.4;
+  const cx = canvas.width/2, cy = canvas.height/2;
+  const camX = game.player.x - cx/ZOOM, camY = game.player.y - cy/ZOOM;
+
+  ctx.fillStyle = '#0a1418';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  ctx.scale(ZOOM, ZOOM);
+
+  // Tiles
+  const map = currentMap();
+  const ws = worldSize();
+  const x0 = Math.max(0, Math.floor(camX/TILE));
+  const y0 = Math.max(0, Math.floor(camY/TILE));
+  const x1 = Math.min(ws.w/TILE, Math.ceil((camX+canvas.width)/TILE));
+  const y1 = Math.min(ws.h/TILE, Math.ceil((camY+canvas.height)/TILE));
+  for(let y=y0; y<y1; y++){
+    for(let x=x0; x<x1; x++){
+      const t = map[y][x];
+      const px = x*TILE - camX, py = y*TILE - camY;
+      ctx.fillStyle = tileColor(t,x,y);
+      ctx.fillRect(px,py,TILE+1,TILE+1);
+      // small noise shading
+      if(t===0){
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(px+((x*7)%TILE),py+((y*13)%TILE),3,3);
+      }
+      if(t===1){
+        ctx.fillStyle='rgba(0,0,0,0.06)';
+        ctx.fillRect(px+((x*11)%TILE),py+((y*17)%TILE),4,2);
+      }
+    }
+  }
+
+  // Built structures
+  const built = game.built;
+  if(built.campfire){
+    drawCampfire(built.campfire.x-camX, built.campfire.y-camY);
+  }
+  if(built.table) drawTable(built.table.x-camX, built.table.y-camY);
+  // House shelter (walls + roof drawn as a coherent structure)
+  drawShelter(built, camX, camY);
+  built.torch.forEach(t=>drawTorch(t.x-camX,t.y-camY));
+  if(built.bed) drawBed(built.bed.x-camX,built.bed.y-camY);
+  if(built.raft){
+    const rx = built.raft.x-camX, ry = built.raft.y-camY;
+    ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fillRect(rx-22,ry+12,44,6);
+    ctx.fillStyle='#9c7549'; ctx.fillRect(rx-22,ry-14,44,28);
+    ctx.fillStyle='#7a5a36';
+    for(let i=0;i<5;i++) ctx.fillRect(rx-22,ry-14+i*6,44,1);
+    // Mast + sail
+    ctx.fillStyle='#5a3a10'; ctx.fillRect(rx-2,ry-38,4,28);
+    ctx.fillStyle='rgba(200,220,255,0.7)';
+    ctx.beginPath(); ctx.moveTo(rx,ry-36); ctx.lineTo(rx+22,ry-22); ctx.lineTo(rx,ry-14); ctx.closePath(); ctx.fill();
+    // Prompt when nearby
+    const dRaft = Math.hypot(built.raft.x-game.player.x, built.raft.y-game.player.y);
+    if(dRaft<130){
+      ctx.fillStyle='rgba(255,220,80,0.95)'; ctx.font='bold 12px Georgia'; ctx.textAlign='center';
+      ctx.fillText('[ESPACIO] Zarpar → Isla Volcánica', rx, ry-52);
+    }
+  }
+  // Return raft on volcano island (SW corner near shore)
+  if(game.map==='volcano'){
+    const rvx=VOLCANO_W/2+180-camX, rvy=VOLCANO_H-380-camY;
+    ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fillRect(rvx-22,rvy+12,44,6);
+    ctx.fillStyle='#7a4e20'; ctx.fillRect(rvx-22,rvy-14,44,28);
+    ctx.fillStyle='#5a3a10';
+    for(let i=0;i<5;i++) ctx.fillRect(rvx-22,rvy-14+i*6,44,1);
+    ctx.fillStyle='#3a200a'; ctx.fillRect(rvx-2,rvy-38,4,28);
+    ctx.fillStyle='rgba(180,200,240,0.65)';
+    ctx.beginPath(); ctx.moveTo(rvx,rvy-36); ctx.lineTo(rvx+22,rvy-22); ctx.lineTo(rvx,rvy-14); ctx.closePath(); ctx.fill();
+    const dRet = Math.hypot(VOLCANO_W/2+180-game.player.x, VOLCANO_H-380-game.player.y);
+    if(dRet<130){
+      ctx.fillStyle='rgba(255,220,80,0.95)'; ctx.font='bold 12px Georgia'; ctx.textAlign='center';
+      ctx.fillText('[ESPACIO] Volver → Playa', rvx, rvy-52);
+    }
+  }
+  // Boat to repair (Day 4-5)
+  if(game.map==='beach'){
+    const bx = WORLD_W/2 + 200, by = WORLD_H/2 + 350;
+    drawBoat(bx-camX,by-camY, game.built.boatRepair);
+  }
+
+  // Entities
+  currentEnts().forEach(e=>{
+    if(e.collected) return;
+    const px = e.x - camX, py = e.y - camY;
+    if(px<-50||py<-50||px>canvas.width+50||py>canvas.height+50) return;
+    drawEntity(e,px,py);
+  });
+
+  // Companion finch
+  if(game.finchCompanion.active){
+    drawFinch(game.finchCompanion.x-camX, game.finchCompanion.y-camY, true, game.finchCompanion.evoStage);
+  }
+
+  // Player — always center of screen in zoomed coords
+  drawPlayer(cx/ZOOM, cy/ZOOM);
+
+  // Particles
+  game.particles.forEach(p=>{
+    ctx.globalAlpha = 1 - p.age/p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-camX-2, p.y-camY-2, 4,4);
+    ctx.globalAlpha = 1;
+  });
+
+  // Day/night overlay
+  drawDayNight();
+
+  // Weather overlay
+  if(game.weather==='storm') drawStorm();
+  if(game.weather==='volcanic') drawVolcanic();
+  if(game.day===5 && game.map==='beach' && game.time>10) drawAshFall();
+
+  ctx.restore();
+
+  // Tool cursor / interaction hint (in screen space, not zoomed)
+  {
+    const hcamX = game.player.x - cx/ZOOM, hcamY = game.player.y - cy/ZOOM;
+    drawInteractionHint(hcamX, hcamY, ZOOM);
+  }
+
+  // Día 2: flechas indicando ubicación de pinzones no observados
+  if(game.started && game.day===2 && game.map==='beach'){
+    const ZOOM2 = 1.4;
+    const camX2 = game.player.x - canvas.width/2/ZOOM2;
+    const camY2 = game.player.y - canvas.height/2/ZOOM2;
+    const scx = canvas.width/2, scy = canvas.height/2;
+    const margin = 52;
+    const finchEnts = beachEnts.filter(e=>(e.type==='finch') && !e.observed && !e.collected);
+    finchEnts.forEach(e=>{
+      const sx = (e.x - camX2)*ZOOM2;
+      const sy = (e.y - camY2)*ZOOM2;
+      // Only draw arrow if finch is off-screen
+      if(sx>=margin && sx<=canvas.width-margin && sy>=margin && sy<=canvas.height-margin) return;
+      const dx = sx - scx, dy = sy - scy;
+      const angle = Math.atan2(dy, dx);
+      const edgeX = Math.cos(angle)*Math.min(Math.abs((scx-margin)/Math.cos(angle)), Math.abs((scy-margin)/Math.sin(angle)));
+      const edgeY = Math.sin(angle)*Math.min(Math.abs((scx-margin)/Math.cos(angle)), Math.abs((scy-margin)/Math.sin(angle)));
+      const ax2 = scx + Math.max(-scx+margin, Math.min(scx-margin, edgeX));
+      const ay2 = scy + Math.max(-scy+margin, Math.min(scy-margin, edgeY));
+      ctx.save();
+      ctx.translate(ax2, ay2);
+      ctx.rotate(angle);
+      // Flecha pulsante
+      const pulse = 0.75 + Math.sin(performance.now()*0.005)*0.25;
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#ffd060';
+      ctx.strokeStyle = '#8a5a00';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(22, 0);
+      ctx.lineTo(6, -9);
+      ctx.lineTo(10, -3);
+      ctx.lineTo(-12, -3);
+      ctx.lineTo(-12, 3);
+      ctx.lineTo(10, 3);
+      ctx.lineTo(6, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Icono pájaro
+      ctx.rotate(-angle);
+      ctx.font = '16px serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🐦', 0, -18);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    });
+  }
+
+  // Indicador de correr
+  if(game.started && game.player.isRunning){
+    ctx.fillStyle = 'rgba(255,220,100,0.85)';
+    ctx.font = 'bold 13px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚡ CORRIENDO', canvas.width/2, canvas.height - 108);
+  }
+}
+
+function tileColor(t,x,y){
+  switch(t){
+    case 0: return '#d8c48a';
+    case 1: return ((x+y)%2)?'#4a8c4a':'#3e7a3e';
+    case 2: return '#7d7466';
+    case 3:
+      // animated water
+      const phase = Math.sin((x+y)*0.4 + performance.now()*0.001);
+      return phase>0?'#1f4d63':'#1a4257';
+    case 4:
+      const ph = Math.sin((x*3+y*2) + performance.now()*0.003);
+      return ph>0?'#ff5a1f':'#cf3a0c';
+    default: return '#222';
+  }
+}
+
+function drawPlayer(x,y){
+  // Efecto visual al correr
+  if(game.player.isRunning){
+    ctx.strokeStyle='rgba(255,220,80,0.5)';
+    ctx.lineWidth=1.5;
+    for(let i=0;i<3;i++){
+      const ox = -game.player.facing*(16+i*6);
+      ctx.beginPath(); ctx.moveTo(x+ox, y-8+i*6); ctx.lineTo(x+ox-8*game.player.facing, y-8+i*6); ctx.stroke();
+    }
+  }
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(x,y+14,12,5,0,0,Math.PI*2); ctx.fill();
+  // Body — Darwin-ish silhouette (frock coat)
+  ctx.fillStyle='#2b2118';
+  ctx.fillRect(x-9,y-4,18,18);
+  // Head
+  ctx.fillStyle='#e0c89a';
+  ctx.beginPath(); ctx.arc(x,y-10,8,0,Math.PI*2); ctx.fill();
+  // Beard
+  ctx.fillStyle='#3a2a1a';
+  ctx.beginPath(); ctx.arc(x,y-6,6,0.1,Math.PI-0.1); ctx.fill();
+  // Hat (top hat)
+  ctx.fillStyle='#0a0a0a';
+  ctx.fillRect(x-7,y-22,14,8);
+  ctx.fillRect(x-9,y-15,18,2);
+  // Tool indicator
+  const tool = TOOLS_LIST[game.player.toolIdx];
+  ctx.fillStyle='#d4b878';
+  ctx.font='14px serif';
+  ctx.textAlign='center';
+  ctx.fillText(TOOL_ICONS[tool], x + 14*game.player.facing, y-2);
+}
+
+function drawEntity(e,px,py){
+  switch(e.type){
+    case 'driftwood':
+      ctx.fillStyle='#8a6a3e'; ctx.fillRect(px-12,py-3,24,6);
+      ctx.strokeStyle='#5a3f1a'; ctx.lineWidth=1; ctx.strokeRect(px-12,py-3,24,6);
+      break;
+    case 'tree':
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px,py+12,14,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#5a3a1a'; ctx.fillRect(px-3,py-2,6,16);
+      ctx.fillStyle='#2d6a2d'; ctx.beginPath(); ctx.arc(px,py-8,16,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#3e8a3e'; ctx.beginPath(); ctx.arc(px-6,py-12,10,0,Math.PI*2); ctx.fill();
+      break;
+    case 'rock':
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(px,py+5,12,4,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#6c6258'; ctx.beginPath(); ctx.arc(px,py,11,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#857a6b'; ctx.beginPath(); ctx.arc(px-3,py-3,5,0,Math.PI*2); ctx.fill();
+      break;
+    case 'bush':
+      if(e.respawn>0){
+        ctx.fillStyle='#3a5a3a'; ctx.beginPath(); ctx.arc(px,py,8,0,Math.PI*2); ctx.fill();
+      } else {
+        ctx.fillStyle='#3e7a3e'; ctx.beginPath(); ctx.arc(px,py,10,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#5a2a8a'; for(let i=0;i<4;i++){const a=i*1.6; ctx.beginPath(); ctx.arc(px+Math.cos(a)*5,py+Math.sin(a)*5,2,0,Math.PI*2); ctx.fill();}
+      }
+      break;
+    case 'cactus':
+      ctx.fillStyle='#3e8a4e'; ctx.fillRect(px-4,py-12,8,18);
+      ctx.fillRect(px-9,py-6,5,8); ctx.fillRect(px+4,py-8,5,8);
+      break;
+    case 'pond':
+      ctx.fillStyle='#1f4d63'; ctx.beginPath(); ctx.ellipse(px,py,18,12,0,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#3aa8d4'; ctx.beginPath(); ctx.ellipse(px,py,14,9,0,0,Math.PI*2); ctx.stroke();
+      break;
+    case 'finch':
+      drawFinch(px,py,e.observed,0,e.species);
+      break;
+    case 'injuredFinch':
+      ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px,py+6,18,5,0,0,Math.PI*2); ctx.fill();
+      if(!e.debrisCleared){
+        ctx.fillStyle='#5a3f1a'; ctx.fillRect(px-16,py-4,32,8);
+        ctx.strokeStyle='#3a2a10'; ctx.strokeRect(px-16,py-4,32,8);
+        ctx.fillStyle='#bda37a'; ctx.font='10px serif'; ctx.textAlign='center';
+        ctx.fillText('Restos', px, py-10);
+      } else if(!e.fed){
+        drawFinch(px,py,false,0,'injured');
+        ctx.fillStyle='#bd6a3a'; ctx.font='10px serif'; ctx.textAlign='center';
+        ctx.fillText('Pinzón herido', px, py-18);
+      } else {
+        drawFinch(px,py,true,0,'injured');
+      }
+      break;
+    case 'crystal':
+      ctx.fillStyle='#a85a3a'; ctx.beginPath(); ctx.arc(px,py,10,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#7adff3';
+      ctx.beginPath(); ctx.moveTo(px,py-8); ctx.lineTo(px+5,py); ctx.lineTo(px,py+6); ctx.lineTo(px-5,py); ctx.closePath(); ctx.fill();
+      break;
+    case 'ironOre':
+      ctx.fillStyle='#5a554c'; ctx.beginPath(); ctx.arc(px,py,11,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#a89c80'; ctx.fillRect(px-3,py-2,3,3); ctx.fillRect(px+1,py+1,3,3);
+      break;
+    case 'tortoise':
+      if(!e.observed) ctx.globalAlpha=0.95;
+      ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px,py+10,22*e.size,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#3a2a18'; ctx.beginPath(); ctx.ellipse(px,py,20*e.size,14*e.size,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#5a4128';
+      ctx.beginPath(); ctx.ellipse(px,py-2,16*e.size,9*e.size,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#8a6a44'; ctx.beginPath(); ctx.arc(px+15*e.size,py,4,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+      break;
+    case 'wreck':
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px,py+8,16,4,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#5a4030'; ctx.fillRect(px-14,py-6,28,12);
+      ctx.fillStyle='#8a6a4a'; ctx.fillRect(px-14,py-6,28,2);
+      ctx.fillStyle='#a89c80'; ctx.fillRect(px+8,py-2,4,8);
+      break;
+    case 'vent':
+      ctx.fillStyle='#3a1a0c'; ctx.beginPath(); ctx.arc(px,py,12,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ff5a1f'; ctx.beginPath(); ctx.arc(px,py,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ffd23a'; ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2); ctx.fill();
+      break;
+  }
+}
+
+function drawFinch(px,py,observed,evoStage=0,species='ground'){
+  const t = performance.now()*0.005;
+  const flap = Math.sin(t)*2;
+  const colors = {ground:'#8a6f3e',tree:'#5a4a3e',warbler:'#7a8a3e',cactus:'#bd7a3e',injured:'#bd9e7a'};
+  let c = colors[species]||'#8a6f3e';
+  if(evoStage>0) c = ['#8a6f3e','#a98a4e','#cfa55e','#e8c478'][Math.min(3,evoStage)];
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px,py+5,7,2,0,0,Math.PI*2); ctx.fill();
+  // Body
+  ctx.fillStyle=c;
+  ctx.beginPath(); ctx.ellipse(px,py,8,5,0,0,Math.PI*2); ctx.fill();
+  // Head
+  ctx.beginPath(); ctx.arc(px+5,py-3,4,0,Math.PI*2); ctx.fill();
+  // Wing
+  ctx.fillStyle='rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(px-1,py-1+flap,5,2,0,0,Math.PI*2); ctx.fill();
+  // Beak
+  ctx.fillStyle='#d4a830';
+  const beakLen = species==='cactus'?5: species==='warbler'?2: species==='tree'?2:3;
+  ctx.beginPath(); ctx.moveTo(px+8,py-3); ctx.lineTo(px+8+beakLen,py-2); ctx.lineTo(px+8,py-1); ctx.closePath(); ctx.fill();
+  // Eye
+  ctx.fillStyle='#1a0a0a'; ctx.fillRect(px+5,py-4,1,1);
+  if(!observed && species!=='injured'){
+    ctx.fillStyle='#d4b878'; ctx.font='9px serif'; ctx.textAlign='center';
+    ctx.fillText('?', px, py-10);
+  }
+  if(evoStage>=3){
+    // glowing aura
+    ctx.strokeStyle='rgba(212,184,120,0.4)';
+    ctx.beginPath(); ctx.arc(px,py,12,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+function drawCampfire(x,y){
+  const t = performance.now()*0.005;
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(x,y+8,18,6,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#5a3a1a'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(x-10,y+5); ctx.lineTo(x+10,y-5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x-10,y-5); ctx.lineTo(x+10,y+5); ctx.stroke();
+  // flame
+  ctx.fillStyle='#ff8a3a';
+  ctx.beginPath(); ctx.moveTo(x-6,y); ctx.quadraticCurveTo(x,y-18-Math.sin(t)*4,x+6,y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ffd23a';
+  ctx.beginPath(); ctx.moveTo(x-3,y); ctx.quadraticCurveTo(x,y-10-Math.sin(t*1.5)*3,x+3,y); ctx.closePath(); ctx.fill();
+}
+function drawTable(x,y){
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x-16,y+8,32,3);
+  ctx.fillStyle='#8a6a3e'; ctx.fillRect(x-16,y-4,32,12);
+  ctx.fillStyle='#5a3a1a'; ctx.fillRect(x-14,y+8,3,8); ctx.fillRect(x+11,y+8,3,8);
+}
+function drawShelter(built, camX, camY){
+  if(!built.campfire || built.wall.length===0) return;
+  const bx = built.campfire.x - camX;
+  const by = built.campfire.y - camY;
+  const W = 115, H = 82; // half-extents of house
+  const n = built.wall.length;
+
+  // Helper: draw a wall segment with wood texture
+  function seg(x1,y1,x2,y2){
+    const len = Math.hypot(x2-x1, y2-y1);
+    const nx = -(y2-y1)/len, ny = (x2-x1)/len; // normal
+    // shadow
+    ctx.strokeStyle='rgba(0,0,0,0.32)';
+    ctx.lineWidth=20; ctx.lineCap='square';
+    ctx.beginPath(); ctx.moveTo(x1+3,y1+4); ctx.lineTo(x2+3,y2+4); ctx.stroke();
+    // main plank
+    ctx.strokeStyle='#7a5a36'; ctx.lineWidth=18;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    // darker top edge
+    ctx.strokeStyle='#5a3a1a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(x1+nx*7,y1+ny*7); ctx.lineTo(x2+nx*7,y2+ny*7); ctx.stroke();
+    // horizontal grain lines
+    ctx.strokeStyle='rgba(40,20,5,0.4)'; ctx.lineWidth=1;
+    const steps = Math.floor(len/14);
+    for(let i=1;i<steps;i++){
+      const t=i/steps;
+      const mx=x1+(x2-x1)*t, my=y1+(y2-y1)*t;
+      ctx.beginPath(); ctx.moveTo(mx+nx*9,my+ny*9); ctx.lineTo(mx-nx*9,my-ny*9); ctx.stroke();
+    }
+  }
+  // Corner post
+  function post(px,py){
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(px-6,py-6+6,14,14);
+    ctx.fillStyle='#4a2e0e'; ctx.fillRect(px-6,py-8,14,18);
+    ctx.fillStyle='#7a5236'; ctx.fillRect(px-4,py-8,10,2);
+  }
+
+  // Roof (drawn first, behind walls)
+  if(built.roof){
+    // Main roof fill
+    ctx.fillStyle='rgba(80,45,12,0.42)';
+    ctx.beginPath();
+    ctx.moveTo(bx-W-8,by-H-8); ctx.lineTo(bx+W+8,by-H-8);
+    ctx.lineTo(bx+W+8,by+H+8); ctx.lineTo(bx-W-8,by+H+8);
+    ctx.closePath(); ctx.fill();
+    // Roof beam grid
+    ctx.strokeStyle='rgba(50,28,5,0.3)'; ctx.lineWidth=2;
+    for(let x=bx-W;x<=bx+W;x+=38){
+      ctx.beginPath(); ctx.moveTo(x,by-H-8); ctx.lineTo(x,by+H+8); ctx.stroke();
+    }
+    for(let y=by-H;y<=by+H;y+=32){
+      ctx.beginPath(); ctx.moveTo(bx-W-8,y); ctx.lineTo(bx+W+8,y); ctx.stroke();
+    }
+    // Roof border
+    ctx.strokeStyle='rgba(60,35,8,0.6)'; ctx.lineWidth=4; ctx.lineJoin='miter';
+    ctx.strokeRect(bx-W-8,by-H-8,2*(W+8),2*(H+8));
+  }
+
+  // Walls drawn in order: 1=back, 2=left, 3=right, 4=front(with door)
+  const dW = 26; // half door width
+  if(n>=1) seg(bx-W, by-H, bx+W, by-H);                          // back wall
+  if(n>=2) seg(bx-W, by-H, bx-W, by+H);                          // left wall
+  if(n>=3) seg(bx+W, by-H, bx+W, by+H);                          // right wall
+  if(n>=4){                                                         // front wall with door gap
+    seg(bx-W, by+H, bx-dW, by+H);
+    seg(bx+dW, by+H, bx+W, by+H);
+    // door frame
+    ctx.strokeStyle='#3a2010'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(bx-dW,by+H-9); ctx.lineTo(bx-dW,by+H+9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx+dW,by+H-9); ctx.lineTo(bx+dW,by+H+9); ctx.stroke();
+  }
+  // Corner posts (appear when ≥4 walls)
+  if(n>=4){
+    post(bx-W, by-H); post(bx+W, by-H);
+    post(bx-W, by+H); post(bx+W, by+H);
+  }
+  // Reinforcement (≥6 walls: extra horizontal brace on back)
+  if(n>=6){
+    ctx.strokeStyle='#4a2e0e'; ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(bx-W+12,by-H); ctx.lineTo(bx+W-12,by-H); ctx.stroke();
+  }
+}
+function drawTorch(x,y){
+  const t = performance.now()*0.008;
+  ctx.fillStyle='#5a3a1a'; ctx.fillRect(x-1,y-4,2,14);
+  ctx.fillStyle='#ff8a3a';
+  ctx.beginPath(); ctx.arc(x,y-8,4+Math.sin(t)*1,0,Math.PI*2); ctx.fill();
+  // glow
+  const grd = ctx.createRadialGradient(x,y-8,2,x,y-8,40);
+  grd.addColorStop(0,'rgba(255,200,100,0.4)');
+  grd.addColorStop(1,'rgba(255,200,100,0)');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y-8,40,0,Math.PI*2); ctx.fill();
+}
+function drawBed(x,y){
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x-18,y+10,36,3);
+  ctx.fillStyle='#8a6a3e'; ctx.fillRect(x-18,y-8,36,18);
+  ctx.fillStyle='#bd9e7a'; ctx.fillRect(x-16,y-6,32,8);
+}
+function drawBoat(x,y, repair){
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x,y+22,40,8,0,0,Math.PI*2); ctx.fill();
+  // hull
+  ctx.fillStyle='#5a3a1a';
+  ctx.beginPath(); ctx.moveTo(x-40,y); ctx.lineTo(x+40,y); ctx.lineTo(x+30,y+18); ctx.lineTo(x-30,y+18); ctx.closePath(); ctx.fill();
+  // planks repaired
+  for(let i=0;i<5;i++){
+    ctx.fillStyle = i<repair ? '#a98a4e' : 'rgba(255,255,255,0.05)';
+    ctx.fillRect(x-30+i*15, y-2, 12, 4);
+  }
+  // mast
+  if(repair>=3){
+    ctx.fillStyle='#7a5a36'; ctx.fillRect(x-1,y-30,2,30);
+    ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.moveTo(x,y-30); ctx.lineTo(x+18,y-10); ctx.lineTo(x,y-10); ctx.closePath(); ctx.fill();
+  }
+  // label
+  ctx.fillStyle='#d4b878'; ctx.font='10px serif'; ctx.textAlign='center';
+  ctx.fillText(`Bote ${repair}/5`, x, y-36);
+}
+
+function drawDayNight(){
+  // night = 20-5 dark, 5-7 sunrise, 17-20 sunset
+  let alpha=0, color='0,0,30';
+  const t = game.time;
+  if(t>=20 || t<5){ alpha=0.55; color='4,8,30'; }
+  else if(t>=17 && t<20){ alpha=(t-17)/3*0.55; color='40,12,8'; }
+  else if(t>=5 && t<7){ alpha=(7-t)/2*0.4; color='40,12,8'; }
+  if(alpha>0){
+    ctx.fillStyle=`rgba(${color},${alpha})`;
+    ctx.fillRect(-100,-100,canvas.width/0.7+200,canvas.height/0.7+200);
+  }
+  // light around campfire/torches
+  if(alpha>0.2 && game.map==='beach'){
+    const ZOOM = 1.4;
+    const camX = game.player.x - canvas.width/2/ZOOM, camY = game.player.y - canvas.height/2/ZOOM;
+    const lights = [];
+    if(game.built.campfire) lights.push({x:game.built.campfire.x-camX,y:game.built.campfire.y-camY,r:140});
+    game.built.torch.forEach(t=>lights.push({x:t.x-camX,y:t.y-camY,r:90}));
+    ctx.globalCompositeOperation='destination-out';
+    lights.forEach(l=>{
+      const g = ctx.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r);
+      g.addColorStop(0,'rgba(0,0,0,'+alpha+')');
+      g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(l.x,l.y,l.r,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalCompositeOperation='source-over';
+  }
+}
+
+function drawStorm(){
+  ctx.fillStyle='rgba(20,30,50,0.45)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // rain
+  ctx.strokeStyle='rgba(180,200,255,0.5)';
+  ctx.lineWidth=1;
+  const seed = performance.now()*0.5|0;
+  for(let i=0;i<160;i++){
+    const x = ((i*97 + seed)%canvas.width);
+    const y = ((i*53 + seed*2)%canvas.height);
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-3,y+10); ctx.stroke();
+  }
+  // lightning flash
+  if(Math.random()<0.005){
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+}
+function drawVolcanic(){
+  ctx.fillStyle='rgba(60,20,10,0.25)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // ember particles
+  ctx.fillStyle='rgba(255,140,40,0.7)';
+  const t = performance.now()*0.001;
+  for(let i=0;i<40;i++){
+    const x = ((i*73 + t*30)%canvas.width);
+    const y = (canvas.height - ((i*51 + t*60)%canvas.height));
+    ctx.fillRect(x,y,2,2);
+  }
+}
+function drawAshFall(){
+  ctx.fillStyle='rgba(80,70,60,0.18)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(200,200,200,0.5)';
+  const t = performance.now()*0.0005;
+  for(let i=0;i<60;i++){
+    const x = ((i*79 + t*200)%canvas.width);
+    const y = ((i*47 + t*150)%canvas.height);
+    ctx.fillRect(x,y,2,2);
+  }
+}
+
+function drawInteractionHint(camX,camY,zoom=1){
+  const e = nearestEnt(50);
+  if(e){
+    ctx.fillStyle='rgba(212,184,120,0.85)';
+    ctx.font='14px Georgia';
+    ctx.textAlign='center';
+    const labels = {
+      driftwood:'Madera flotante',tree:'Árbol',rock:'Roca',bush:'Arbusto de bayas',
+      cactus:'Cactus (fibra)',pond:'Estanque', finch:'Pinzón', injuredFinch:'Pinzón herido',
+      crystal:'Cristal volcánico',ironOre:'Mineral de hierro',tortoise:'Tortuga gigante',
+      wreck:'Restos del barco', vent:'Respiradero (peligro)'
+    };
+    const lbl = labels[e.type]||e.type;
+    // Draw in screen space (after restore)
+    ctx.fillText(`${lbl}  [ESPACIO]`, (e.x-camX)*zoom, (e.y-camY)*zoom - 30);
+  }
+}
+
+// initial render so title page has something behind
+render();
+</script>
+</body>
+</html>
